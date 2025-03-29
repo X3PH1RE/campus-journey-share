@@ -1,197 +1,120 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
-import MainLayout from '@/components/layout/MainLayout';
-import { Loader2Icon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import RideRequestForm from '@/components/ride/RideRequestForm';
-import RideStatusCard from '@/components/ride/RideStatusCard';
+import MainLayout from '@/components/layout/MainLayout';
 import DriverDashboard from '@/components/driver/DriverDashboard';
 import MapComponent from '@/components/map/MapComponent';
-import { supabase, Ride } from '@/lib/supabase';
+import RideStatusCard from '@/components/ride/RideStatusCard';
+import { Navigate } from 'react-router-dom';
+import { CarIcon, UserIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
-const App = () => {
-  const { user, isLoading, isDriver } = useAuth();
-  const [activeRide, setActiveRide] = useState<Ride | null>(null);
-  const [mapMarkers, setMapMarkers] = useState<any[]>([]);
-  const [mapRoutes, setMapRoutes] = useState<any[]>([]);
-  const [isCheckingRide, setIsCheckingRide] = useState(true);
+const AppPage = () => {
+  const { user, isLoading, isDriver, toggleDriverMode } = useAuth();
+  const [activeRideId, setActiveRideId] = useState<string | null>(null);
+  const [mapMode, setMapMode] = useState<'pickup' | 'dropoff'>('pickup');
+  const [selectedLocation, setSelectedLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
-  // Check if user has an active ride
   useEffect(() => {
-    const checkActiveRide = async () => {
-      if (!user) return;
-
-      try {
-        setIsCheckingRide(true);
-        const { data, error } = await supabase
-          .from('ride_requests')
-          .select('*')
-          .eq('rider_id', user.id)
-          .in('status', ['searching', 'driver_assigned', 'en_route', 'arrived', 'in_progress'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (error) throw error;
-        
-        if (data) {
-          setActiveRide(data as Ride);
-          updateMapData(data as Ride);
-        }
-      } catch (error) {
-        console.error('Error checking active ride:', error);
-      } finally {
-        setIsCheckingRide(false);
-      }
-    };
-
-    checkActiveRide();
-  }, [user]);
-
-  // Update map when active ride changes
-  const updateMapData = (ride: Ride) => {
-    const markers = [
-      {
-        id: 'pickup',
-        type: 'pickup' as const,
-        lngLat: [ride.pickup_location.lng, ride.pickup_location.lat]
-      },
-      {
-        id: 'dropoff',
-        type: 'dropoff' as const,
-        lngLat: [ride.dropoff_location.lng, ride.dropoff_location.lat]
-      }
-    ];
-
-    // Add driver marker if driver is assigned
-    if (ride.driver_id && ride.status !== 'searching') {
-      // In a real app, we'd get the actual driver location
-      // For demo, we'll place it near the pickup
-      markers.push({
-        id: 'driver',
-        type: 'driver' as const,
-        lngLat: [ride.pickup_location.lng - 0.01, ride.pickup_location.lat - 0.01]
+    if (!isLoading && !user) {
+      toast('Please sign in to continue', {
+        description: 'You need to be signed in to use this app',
+        action: {
+          label: 'Sign In',
+          onClick: () => window.location.href = '/auth',
+        },
       });
     }
+  }, [isLoading, user]);
 
-    setMapMarkers(markers);
-
-    // Create routes based on ride status
-    const routes = [];
-    
-    if (ride.status === 'en_route' || ride.status === 'driver_assigned') {
-      // Route from driver to pickup
-      routes.push({
-        type: 'pickup' as const,
-        coordinates: [
-          [ride.pickup_location.lng - 0.01, ride.pickup_location.lat - 0.01], // Driver location
-          [ride.pickup_location.lng - 0.005, ride.pickup_location.lat - 0.005], // Waypoint
-          [ride.pickup_location.lng, ride.pickup_location.lat], // Pickup
-        ],
-      });
-    }
-    
-    if (ride.status === 'in_progress') {
-      // Route from pickup to dropoff
-      routes.push({
-        type: 'dropoff' as const,
-        coordinates: [
-          [ride.pickup_location.lng, ride.pickup_location.lat], // Pickup
-          [
-            (ride.pickup_location.lng + ride.dropoff_location.lng) / 2,
-            (ride.pickup_location.lat + ride.dropoff_location.lat) / 2,
-          ], // Midpoint
-          [ride.dropoff_location.lng, ride.dropoff_location.lat], // Dropoff
-        ],
-      });
-    }
-    
-    setMapRoutes(routes);
-  };
-
-  const handleRequestSubmit = () => {
-    // Re-fetch active ride after submitting a request
-    setTimeout(() => {
-      if (user) {
-        supabase
-          .from('ride_requests')
-          .select('*')
-          .eq('rider_id', user.id)
-          .in('status', ['searching', 'driver_assigned', 'en_route', 'arrived', 'in_progress'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
-          .then(({ data, error }) => {
-            if (error) return;
-            if (data) {
-              setActiveRide(data as Ride);
-              updateMapData(data as Ride);
-            }
-          });
-      }
-    }, 500);
-  };
-
-  const handleRideCancel = () => {
-    setActiveRide(null);
-    setMapMarkers([]);
-    setMapRoutes([]);
-  };
-
-  const handleRideComplete = () => {
-    setActiveRide(null);
-    setMapMarkers([]);
-    setMapRoutes([]);
-  };
-
-  // Redirect to auth if not logged in
+  // Redirect if not logged in
   if (!isLoading && !user) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (isLoading || isCheckingRide) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2Icon className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const handleRideRequested = (rideId: string) => {
+    setActiveRideId(rideId);
+    toast('Ride requested', {
+      description: 'Looking for drivers near you...',
+    });
+  };
+
+  const handleRideCancelled = () => {
+    setActiveRideId(null);
+    toast('Ride cancelled', {
+      description: 'Your ride has been cancelled',
+    });
+  };
+
+  const handleRideCompleted = () => {
+    setActiveRideId(null);
+    toast('Ride completed', {
+      description: 'Thanks for riding with Hailo!',
+    });
+  };
+
+  const handleLocationSelect = (location: { lat: number; lng: number } | null) => {
+    setSelectedLocation(location);
+  };
 
   return (
     <MainLayout>
-      {isDriver ? (
-        <div className="container py-6">
-          <DriverDashboard />
-        </div>
-      ) : (
-        <div className="container py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div>
-              <h1 className="text-2xl font-bold mb-6">Request a Ride</h1>
-              {activeRide ? (
-                <RideStatusCard 
-                  rideId={activeRide.id}
-                  onCancel={handleRideCancel}
-                  onComplete={handleRideComplete}
-                />
+      <div className="flex flex-col md:flex-row h-[calc(100vh-60px)]">
+        {/* Map Area - Takes up more space on larger screens */}
+        <div className="flex-1 h-1/2 md:h-full relative">
+          <MapComponent
+            mode={isDriver ? 'driver' : mapMode}
+            onLocationSelect={handleLocationSelect}
+          />
+          
+          <div className="absolute top-4 right-4 z-10">
+            <Button 
+              variant="outline" 
+              className="bg-background/80 backdrop-blur-sm"
+              onClick={toggleDriverMode}
+            >
+              {isDriver ? (
+                <>
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  Switch to Rider
+                </>
               ) : (
-                <RideRequestForm onRequestSubmit={handleRequestSubmit} />
+                <>
+                  <CarIcon className="mr-2 h-4 w-4" />
+                  Switch to Driver
+                </>
               )}
-            </div>
-            <div>
-              <div className="bg-card rounded-lg border overflow-hidden h-[500px]">
-                <MapComponent 
-                  markers={mapMarkers}
-                  routes={mapRoutes}
-                />
-              </div>
-            </div>
+            </Button>
           </div>
         </div>
-      )}
+        
+        {/* Content Area - Sidebar for forms and info */}
+        <div className="w-full md:w-[400px] p-4 overflow-y-auto bg-background shadow-lg">
+          {isDriver ? (
+            <DriverDashboard />
+          ) : (
+            <div className="space-y-4">
+              {activeRideId ? (
+                <RideStatusCard 
+                  rideId={activeRideId}
+                  onCancel={handleRideCancelled}
+                  onComplete={handleRideCompleted}
+                />
+              ) : (
+                <RideRequestForm onRequestSubmit={handleRideRequested} />
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </MainLayout>
   );
 };
 
-export default App;
+export default AppPage;

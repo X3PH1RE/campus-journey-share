@@ -1,11 +1,14 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Default Supabase values for development (replace with real values in production)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://example.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZha2VrZXkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYxMzA5ODUzMiwiZXhwIjoxOTI4Njc0NTMyfQ.fake-key-do-not-use-in-production';
 
+// Initialize Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Type definitions
 export type Profile = {
   id: string;
   username: string;
