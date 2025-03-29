@@ -132,18 +132,20 @@ const MapComponent: React.FC<MapComponentProps> = ({
       </style>
       
       <div className="leaflet-container">
-        <MapContainer 
+        <MapContainer
           className="h-full w-full rounded-lg"
-          // @ts-ignore - React-Leaflet type definitions don't match actual props
+          // @ts-ignore - React-Leaflet props type mismatch
           center={center}
+          // @ts-ignore - React-Leaflet props type mismatch
           zoom={zoom}
         >
           <ChangeView center={center} zoom={zoom} />
           
-          {/* Base map layer - Setting attribution via URL for TileLayer */}
-          <TileLayer 
-            // @ts-ignore - React-Leaflet type definitions don't match actual props
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+          {/* Base map layer */}
+          <TileLayer
+            // @ts-ignore - React-Leaflet props type mismatch
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            // @ts-ignore - React-Leaflet props type mismatch
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
           
@@ -167,6 +169,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
               key={marker.id}
               // @ts-ignore - Type definitions don't match actual prop requirements
               position={[marker.lngLat[1], marker.lngLat[0]]}
+              // @ts-ignore - Type definitions don't match actual prop requirements
               icon={getMarkerIcon(marker.type)}
             >
               <Popup>

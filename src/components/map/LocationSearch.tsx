@@ -43,9 +43,9 @@ export default function LocationSearch({ placeholder = 'Search for a location...
       setIsLoading(true);
       
       try {
-        // Use OpenStreetMap's Nominatim API instead of Mapbox
+        // Use OpenStreetMap's Nominatim API with India focus
         const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&countrycodes=us`,
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&countrycodes=in`,
           {
             headers: {
               'Accept': 'application/json',

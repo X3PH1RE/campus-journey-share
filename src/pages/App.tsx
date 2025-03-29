@@ -66,28 +66,28 @@ const AppPage = () => {
   return (
     <MainLayout>
       <div className="flex flex-col md:flex-row h-[calc(100vh-60px)]">
-        {/* Map Area - Takes up more space on larger screens */}
-        <div className="flex-1 h-1/2 md:h-full relative">
+        {/* Map Area - Takes up more space on larger screens but doesn't overlay content */}
+        <div className="flex-1 h-[40vh] md:h-full relative">
           <MapComponent
             mode={isDriver ? 'driver' : mapMode}
             onLocationSelect={handleLocationSelect}
           />
           
-          <div className="absolute top-4 right-4 z-10">
+          <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
             <Button 
               variant="outline" 
-              className="bg-background/80 backdrop-blur-sm"
+              className="bg-background/80 backdrop-blur-sm flex items-center justify-center gap-2 shadow-md"
               onClick={toggleDriverMode}
             >
               {isDriver ? (
                 <>
-                  <UserIcon className="mr-2 h-4 w-4" />
-                  Switch to Rider
+                  <UserIcon className="h-4 w-4" />
+                  <span>Rider Mode</span>
                 </>
               ) : (
                 <>
-                  <CarIcon className="mr-2 h-4 w-4" />
-                  Switch to Driver
+                  <CarIcon className="h-4 w-4" />
+                  <span>Driver Mode</span>
                 </>
               )}
             </Button>
