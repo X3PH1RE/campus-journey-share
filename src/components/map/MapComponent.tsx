@@ -98,7 +98,8 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   return (
     <div className="relative w-full h-full min-h-[300px]">
-      <style jsx global>
+      {/* Add CSS styles */}
+      <style>
         {`
         .custom-marker.pulse::before {
           content: '';
@@ -132,16 +133,16 @@ const MapComponent: React.FC<MapComponentProps> = ({
       
       <div className="leaflet-container">
         <MapContainer 
-          center={center as [number, number]} 
-          zoom={zoom} 
-          style={{ height: '100%', width: '100%', borderRadius: '0.5rem' }}
+          className="h-full w-full rounded-lg"
+          center={center}
+          zoom={zoom}
         >
           <ChangeView center={center} zoom={zoom} />
           
           {/* Base map layer */}
           <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           
           {/* Route polylines */}
