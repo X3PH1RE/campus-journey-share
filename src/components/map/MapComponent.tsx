@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -97,7 +98,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
 
   return (
     <div className="relative w-full h-full min-h-[300px]">
-      <style>
+      <style jsx global>
         {`
         .custom-marker.pulse::before {
           content: '';
@@ -131,7 +132,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
       
       <div className="leaflet-container">
         <MapContainer 
-          center={center} 
+          center={center as [number, number]} 
           zoom={zoom} 
           style={{ height: '100%', width: '100%', borderRadius: '0.5rem' }}
         >
@@ -147,7 +148,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
           {routes.map((route, index) => (
             <Polyline 
               key={`route-${index}`}
-              positions={route.coordinates.map(coord => [coord[1], coord[0]] as L.LatLngExpression)} // Flip coordinates for Leaflet
+              positions={route.coordinates.map(coord => [coord[1], coord[0]])} 
               pathOptions={{ 
                 color: route.type === 'pickup' ? '#10B981' : '#EF4444', 
                 weight: 4, 
@@ -160,7 +161,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
           {markers.map((marker) => (
             <Marker
               key={marker.id}
-              position={[marker.lngLat[1], marker.lngLat[0]] as L.LatLngExpression} // Flip coordinates for Leaflet
+              position={[marker.lngLat[1], marker.lngLat[0]]}
               icon={getMarkerIcon(marker.type)}
             >
               <Popup>
