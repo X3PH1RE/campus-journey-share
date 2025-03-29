@@ -9,7 +9,48 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          is_driver: boolean | null
+          phone_number: string | null
+          rating: number | null
+          total_rides: number | null
+          updated_at: string
+          username: string | null
+          vehicle_info: Json | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          is_driver?: boolean | null
+          phone_number?: string | null
+          rating?: number | null
+          total_rides?: number | null
+          updated_at?: string
+          username?: string | null
+          vehicle_info?: Json | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          is_driver?: boolean | null
+          phone_number?: string | null
+          rating?: number | null
+          total_rides?: number | null
+          updated_at?: string
+          username?: string | null
+          vehicle_info?: Json | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

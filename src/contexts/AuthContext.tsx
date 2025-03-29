@@ -1,8 +1,11 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase, Profile } from '@/lib/supabase';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { Database } from '@/integrations/supabase/types';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 type AuthContextType = {
   user: User | null;
@@ -23,7 +26,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
     // Get initial session
@@ -70,12 +72,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data) {
         setProfile(data as Profile);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching profile:', error);
-      toast({
-        title: 'Error fetching profile',
+      toast('Error fetching profile', {
         description: 'Please try refreshing the page.',
-        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -94,10 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
     } catch (error: any) {
-      toast({
-        title: 'Sign in failed',
+      toast('Sign in failed', {
         description: error.message,
-        variant: 'destructive',
       });
       throw error;
     } finally {
@@ -113,35 +111,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            username,
+          }
+        }
       });
 
       if (error) {
         throw error;
       }
 
-      if (data.user) {
-        // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert([
-            {
-              id: data.user.id,
-              username,
-              full_name: username,
-              avatar_url: '',
-              is_driver: false,
-            },
-          ]);
-
-        if (profileError) {
-          throw profileError;
-        }
-      }
+      // Profile will be created by the database trigger
     } catch (error: any) {
-      toast({
-        title: 'Sign up failed',
+      toast('Sign up failed', {
         description: error.message,
-        variant: 'destructive',
       });
       throw error;
     } finally {
@@ -157,10 +141,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
     } catch (error: any) {
-      toast({
-        title: 'Sign out failed',
+      toast('Sign out failed', {
         description: error.message,
-        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -183,15 +165,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         is_driver: !profile.is_driver,
       });
       
-      toast({
-        title: `Switched to ${!profile.is_driver ? 'Driver' : 'Rider'} mode`,
+      toast('Switched mode', {
         description: `You are now in ${!profile.is_driver ? 'driver' : 'rider'} mode.`,
       });
     } catch (error: any) {
-      toast({
-        title: 'Failed to switch mode',
+      toast('Failed to switch mode', {
         description: error.message,
-        variant: 'destructive',
       });
     }
   };

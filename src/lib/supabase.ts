@@ -1,30 +1,14 @@
 
-import { createClient } from '@supabase/supabase-js';
+// This file is deprecated and will be removed in a future update.
+// Please use @/integrations/supabase/client instead.
+import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
-// Default Supabase values for development (replace with real values in production)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://example.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZha2VrZXkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYxMzA5ODUzMiwiZXhwIjoxOTI4Njc0NTMyfQ.fake-key-do-not-use-in-production';
-
-// Initialize Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Re-export the supabase client to maintain backward compatibility
+export { supabase };
 
 // Type definitions
-export type Profile = {
-  id: string;
-  username: string;
-  full_name: string;
-  avatar_url: string;
-  is_driver: boolean;
-  vehicle_info?: {
-    make: string;
-    model: string;
-    color: string;
-    plate: string;
-  };
-  phone_number?: string;
-  rating?: number;
-  total_rides?: number;
-};
+export type Profile = Database['public']['Tables']['profiles']['Row'];
 
 export type RideStatus = 
   | 'searching'
