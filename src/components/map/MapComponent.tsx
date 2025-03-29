@@ -131,42 +131,16 @@ const MapComponent: React.FC<MapComponentProps> = ({
       
       <div className="leaflet-container">
         <MapContainer 
-          defaultCenter={center as L.LatLngExpression} 
-          defaultZoom={zoom} 
+          center={center} 
+          zoom={zoom} 
           style={{ height: '100%', width: '100%', borderRadius: '0.5rem' }}
         >
           <ChangeView center={center} zoom={zoom} />
           
-          {/* Map click handler setup */}
-          {onMapClick && (
-            <div 
-              className="absolute inset-0 z-[400]" 
-              onClick={(e) => {
-                // Prevent capturing clicks on controls or markers
-                if (!(e.target as HTMLElement).closest('.leaflet-control') && 
-                    !(e.target as HTMLElement).closest('.leaflet-marker-icon')) {
-                  const map = (e.currentTarget as HTMLElement).closest('.leaflet-container');
-                  if (map) {
-                    const rect = map.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    // Convert pixel coordinates to lat/lng using the map instance
-                    // This is a simplified approach and may need adjustment
-                    handleMapClick({
-                      latlng: L.point(x, y) as any,
-                      // Other properties may be needed but aren't used in handleMapClick
-                    } as L.LeafletMouseEvent);
-                  }
-                }
-              }}
-              style={{ pointerEvents: 'none' }}
-            />
-          )}
-          
           {/* Base map layer */}
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           />
           
           {/* Route polylines */}
@@ -194,6 +168,33 @@ const MapComponent: React.FC<MapComponentProps> = ({
               </Popup>
             </Marker>
           ))}
+          
+          {/* Map click handler setup */}
+          {onMapClick && (
+            <div
+              className="absolute inset-0 z-[400]"
+              onClick={(e) => {
+                // This is handled outside of Leaflet as a workaround
+                // We're not using the actual onClick event from the map because we need
+                // to prevent clicks on markers and controls
+                if (!(e.target as HTMLElement).closest('.leaflet-control') && 
+                    !(e.target as HTMLElement).closest('.leaflet-marker-icon')) {
+                  const map = (e.currentTarget as HTMLElement).closest('.leaflet-container');
+                  if (map) {
+                    const rect = map.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    // This is a simplified approach and may need adjustment
+                    handleMapClick({
+                      latlng: L.point(x, y) as any,
+                      // Other properties aren't used in handleMapClick
+                    } as L.LeafletMouseEvent);
+                  }
+                }
+              }}
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
         </MapContainer>
       </div>
     </div>
