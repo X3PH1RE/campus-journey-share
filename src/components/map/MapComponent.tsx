@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -20,7 +19,9 @@ interface MapComponentProps {
   routes?: Route[];
   center?: [number, number];
   zoom?: number;
+  mode?: 'pickup' | 'dropoff' | 'driver' | 'rider';
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
+  onLocationSelect?: (location: { lat: number; lng: number } | null) => void;
 }
 
 // Temporary Mapbox token input form
@@ -66,7 +67,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
   routes = [],
   center = [-74.0066, 40.7135], // Default to NYC
   zoom = 12,
+  mode,
   onMapClick,
+  onLocationSelect,
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);

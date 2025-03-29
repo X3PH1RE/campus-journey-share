@@ -107,7 +107,9 @@ const AppPage = () => {
                   onComplete={handleRideCompleted}
                 />
               ) : (
-                <RideRequestForm onRequestSubmit={handleRideRequested} />
+                <RideRequestForm 
+                  onRequestSubmit={(rideId: string) => handleRideRequested(rideId)} 
+                />
               )}
             </div>
           )}
