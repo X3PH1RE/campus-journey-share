@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Polyline } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -66,8 +65,8 @@ const ChangeView = ({ center, zoom }: { center: [number, number], zoom: number }
 const MapComponent: React.FC<MapComponentProps> = ({
   markers = [],
   routes = [],
-  center = [40.7135, -74.0066], // Default to NYC, note the flipped coordinates from Mapbox
-  zoom = 12,
+  center = [20.5937, 78.9629], // Default to center of India
+  zoom = 5, // Zoom level to see all of India
   mode,
   onMapClick,
   onLocationSelect,
@@ -130,57 +129,73 @@ const MapComponent: React.FC<MapComponentProps> = ({
         `}
       </style>
       
-      <MapContainer 
-        center={center as L.LatLngExpression} 
-        zoom={zoom} 
-        style={{ height: '100%', width: '100%', borderRadius: '0.5rem' }}
-      >
-        <ChangeView center={center} zoom={zoom} />
-        
-        {/* Add an event handler for map clicks */}
-        {onMapClick && (
-          <div className="sr-only" onClick={e => {
-            document.addEventListener('click', e => {
-              if (e.target instanceof HTMLElement && e.target.closest('.leaflet-container')) {
-                // This is a hack: Leaflet doesn't expose map clicks directly through React props
-                // The actual click handler is set up when the map initializes
-              }
-            }, { once: true });
-          }} />
-        )}
-        
-        {/* Base map layer */}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        
-        {/* Route polylines */}
-        {routes.map((route, index) => (
-          <Polyline 
-            key={`route-${index}`}
-            positions={route.coordinates.map(coord => [coord[1], coord[0]] as L.LatLngExpression)} // Flip coordinates for Leaflet
-            pathOptions={{ 
-              color: route.type === 'pickup' ? '#10B981' : '#EF4444', 
-              weight: 4, 
-              opacity: 0.8 
-            }}
+      <div className="leaflet-container">
+        <MapContainer 
+          defaultCenter={center as L.LatLngExpression} 
+          defaultZoom={zoom} 
+          style={{ height: '100%', width: '100%', borderRadius: '0.5rem' }}
+        >
+          <ChangeView center={center} zoom={zoom} />
+          
+          {/* Map click handler setup */}
+          {onMapClick && (
+            <div 
+              className="absolute inset-0 z-[400]" 
+              onClick={(e) => {
+                // Prevent capturing clicks on controls or markers
+                if (!(e.target as HTMLElement).closest('.leaflet-control') && 
+                    !(e.target as HTMLElement).closest('.leaflet-marker-icon')) {
+                  const map = (e.currentTarget as HTMLElement).closest('.leaflet-container');
+                  if (map) {
+                    const rect = map.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    // Convert pixel coordinates to lat/lng using the map instance
+                    // This is a simplified approach and may need adjustment
+                    handleMapClick({
+                      latlng: L.point(x, y) as any,
+                      // Other properties may be needed but aren't used in handleMapClick
+                    } as L.LeafletMouseEvent);
+                  }
+                }
+              }}
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
+          
+          {/* Base map layer */}
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-        ))}
-        
-        {/* Markers */}
-        {markers.map((marker) => (
-          <Marker
-            key={marker.id}
-            position={[marker.lngLat[1], marker.lngLat[0]] as L.LatLngExpression} // Flip coordinates for Leaflet
-            icon={getMarkerIcon(marker.type)}
-          >
-            <Popup>
-              {marker.type.charAt(0).toUpperCase() + marker.type.slice(1)} location
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+          
+          {/* Route polylines */}
+          {routes.map((route, index) => (
+            <Polyline 
+              key={`route-${index}`}
+              positions={route.coordinates.map(coord => [coord[1], coord[0]] as L.LatLngExpression)} // Flip coordinates for Leaflet
+              pathOptions={{ 
+                color: route.type === 'pickup' ? '#10B981' : '#EF4444', 
+                weight: 4, 
+                opacity: 0.8 
+              }}
+            />
+          ))}
+          
+          {/* Markers */}
+          {markers.map((marker) => (
+            <Marker
+              key={marker.id}
+              position={[marker.lngLat[1], marker.lngLat[0]] as L.LatLngExpression} // Flip coordinates for Leaflet
+              icon={getMarkerIcon(marker.type)}
+            >
+              <Popup>
+                {marker.type.charAt(0).toUpperCase() + marker.type.slice(1)} location
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
     </div>
   );
 };
