@@ -3,10 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { SearchIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import mapboxgl from 'mapbox-gl';
-
-// Set Mapbox token (should be moved to environment variable in production)
-mapboxgl.accessToken = 'pk.eyJ1IjoiZXhhbXBsZXVzZXIiLCJhIjoiY2s4dmszdWZ6MDFrdzNsbnByNDNoenV2YSJ9.examplesecretkey';
 
 interface LocationSearchProps {
   placeholder?: string;
@@ -19,7 +15,7 @@ interface LocationSearchProps {
 
 export default function LocationSearch({ placeholder = 'Search for a location...', onLocationSelect }: LocationSearchProps) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<{ place_name: string; center: [number, number] }[]>([]);
+  const [results, setResults] = useState<{ display_name: string; lat: string; lon: string }[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -47,20 +43,23 @@ export default function LocationSearch({ placeholder = 'Search for a location...
       setIsLoading(true);
       
       try {
+        // Use OpenStreetMap's Nominatim API instead of Mapbox
         const response = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-            query
-          )}.json?access_token=${mapboxgl.accessToken}&limit=5&country=us`
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&countrycodes=us`,
+          {
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'Hailo Ride App' // Nominatim requires a User-Agent
+            }
+          }
         );
         
-        const data = await response.json();
-        // Explicitly ensure the correct type for center
-        const typedResults = data.features.map((feature: any) => ({
-          place_name: feature.place_name,
-          center: feature.center as [number, number]
-        }));
+        if (!response.ok) {
+          throw new Error('Failed to fetch locations');
+        }
         
-        setResults(typedResults);
+        const data = await response.json();
+        setResults(data);
         setShowResults(true);
       } catch (error) {
         console.error('Error searching locations:', error);
@@ -79,13 +78,13 @@ export default function LocationSearch({ placeholder = 'Search for a location...
     return () => clearTimeout(debounce);
   }, [query]);
 
-  const handleSelect = (result: { place_name: string; center: [number, number] }) => {
+  const handleSelect = (result: { display_name: string; lat: string; lon: string }) => {
     onLocationSelect({
-      address: result.place_name,
-      lat: result.center[1], // Latitude is the second element
-      lng: result.center[0]  // Longitude is the first element
+      address: result.display_name,
+      lat: parseFloat(result.lat),
+      lng: parseFloat(result.lon)
     });
-    setQuery(result.place_name);
+    setQuery(result.display_name);
     setShowResults(false);
   };
 
@@ -128,7 +127,7 @@ export default function LocationSearch({ placeholder = 'Search for a location...
               className="p-2 hover:bg-accent cursor-pointer border-b last:border-b-0"
               onClick={() => handleSelect(result)}
             >
-              <p className="text-sm">{result.place_name}</p>
+              <p className="text-sm">{result.display_name}</p>
             </div>
           ))}
         </div>
