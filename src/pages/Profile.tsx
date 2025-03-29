@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import MainLayout from '@/components/layout/MainLayout';
@@ -15,9 +15,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2Icon, StarIcon } from 'lucide-react';
+import { VehicleInfo } from '@/lib/supabase';
 
 const Profile = () => {
   const { user, profile, isLoading } = useAuth();
@@ -25,12 +26,29 @@ const Profile = () => {
   const [formData, setFormData] = useState({
     fullName: profile?.full_name || '',
     phoneNumber: profile?.phone_number || '',
-    vehicleMake: profile?.vehicle_info?.make || '',
-    vehicleModel: profile?.vehicle_info?.model || '',
-    vehicleColor: profile?.vehicle_info?.color || '',
-    vehiclePlate: profile?.vehicle_info?.plate || '',
+    vehicleMake: '',
+    vehicleModel: '',
+    vehicleColor: '',
+    vehiclePlate: '',
   });
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (profile?.vehicle_info) {
+      try {
+        const vehicleInfo = profile.vehicle_info as unknown as VehicleInfo;
+        setFormData(prev => ({
+          ...prev,
+          vehicleMake: vehicleInfo.make || '',
+          vehicleModel: vehicleInfo.model || '',
+          vehicleColor: vehicleInfo.color || '',
+          vehiclePlate: vehicleInfo.plate || '',
+        }));
+      } catch (error) {
+        console.error('Error parsing vehicle info:', error);
+      }
+    }
+  }, [profile]);
 
   // Redirect to auth if not logged in
   if (!isLoading && !user) {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -13,7 +12,8 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { supabase, Ride } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import { Ride, VehicleInfo } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -55,7 +55,7 @@ export default function DriverDashboard() {
         filter: `status=eq.searching`,
       }, payload => {
         // Add new ride request to the list
-        setRideRequests(prev => [payload.new as Ride, ...prev]);
+        setRideRequests(prev => [payload.new as unknown as Ride, ...prev]);
         
         toast({
           title: 'New ride request',
@@ -90,7 +90,7 @@ export default function DriverDashboard() {
         table: 'ride_requests',
         filter: `id=eq.${currentRide.id}`,
       }, payload => {
-        setCurrentRide(payload.new as Ride);
+        setCurrentRide(payload.new as unknown as Ride);
         
         // If ride was cancelled
         if (payload.new.status === 'cancelled') {
@@ -132,7 +132,7 @@ export default function DriverDashboard() {
         
       if (error) throw error;
       
-      setRideRequests(data as Ride[]);
+      setRideRequests(data as unknown as Ride[]);
     } catch (error) {
       console.error('Error fetching ride requests:', error);
     } finally {
@@ -154,7 +154,7 @@ export default function DriverDashboard() {
       if (error) throw error;
       
       if (data) {
-        setCurrentRide(data as Ride);
+        setCurrentRide(data as unknown as Ride);
         // Remove ride from available requests
         setRideRequests(prev => prev.filter(r => r.id !== data.id));
       }

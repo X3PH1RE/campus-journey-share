@@ -9,6 +9,8 @@ export { supabase };
 
 // Type definitions
 export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type RideRequest = Database['public']['Tables']['ride_requests']['Row'];
+export type DriverRating = Database['public']['Tables']['driver_ratings']['Row'];
 
 export type RideStatus = 
   | 'searching'
@@ -39,4 +41,11 @@ export type Ride = {
   actual_fare?: number;
   estimated_duration: number;
   distance: number;
+};
+
+export type VehicleInfo = {
+  make: string;
+  model: string;
+  color: string;
+  plate: string;
 };

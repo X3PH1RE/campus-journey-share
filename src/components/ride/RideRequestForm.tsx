@@ -1,15 +1,15 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import LocationSearch from '@/components/map/LocationSearch';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2Icon } from 'lucide-react';
 
 interface RideRequestFormProps {
-  onRequestSubmit: () => void;
+  onRequestSubmit: (rideId: string) => void;
 }
 
 export default function RideRequestForm({ onRequestSubmit }: RideRequestFormProps) {
@@ -58,7 +58,7 @@ export default function RideRequestForm({ onRequestSubmit }: RideRequestFormProp
   };
   
   // Update estimates when pickup or dropoff changes
-  useState(() => {
+  useEffect(() => {
     if (pickup && dropoff) {
       calculateEstimates();
     } else {
@@ -66,7 +66,7 @@ export default function RideRequestForm({ onRequestSubmit }: RideRequestFormProp
       setEstimatedTime(null);
       setDistance(null);
     }
-  });
+  }, [pickup, dropoff]);
   
   const handleSubmit = async () => {
     if (!pickup || !dropoff) {
@@ -121,7 +121,9 @@ export default function RideRequestForm({ onRequestSubmit }: RideRequestFormProp
         description: "Looking for drivers near you...",
       });
       
-      onRequestSubmit();
+      if (data && data[0]) {
+        onRequestSubmit(data[0].id);
+      }
     } catch (error: any) {
       console.error('Error creating ride request:', error);
       toast({

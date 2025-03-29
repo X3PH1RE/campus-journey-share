@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { 
   Card, 
@@ -12,7 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { supabase, Ride, Profile, RideStatus } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
+import { Profile, Ride, RideStatus, VehicleInfo } from '@/lib/supabase';
 import { 
   ClockIcon, 
   MapPinIcon,
@@ -71,7 +71,8 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
 
         if (rideError) throw rideError;
         
-        setRide(rideData as Ride);
+        // Cast the data to our expected Ride type
+        setRide(rideData as unknown as Ride);
         
         // If driver assigned, fetch driver profile
         if (rideData.driver_id) {
@@ -108,7 +109,7 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
         table: 'ride_requests',
         filter: `id=eq.${rideId}` 
       }, payload => {
-        setRide(payload.new as Ride);
+        setRide(payload.new as unknown as Ride);
         
         // If driver just assigned, fetch driver profile
         if (payload.new.driver_id && payload.new.driver_id !== payload.old?.driver_id) {
@@ -216,6 +217,13 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
     }
   };
 
+  const renderVehicleInfo = () => {
+    if (!driver?.vehicle_info) return null;
+    
+    const vehicleInfo = driver.vehicle_info as unknown as VehicleInfo;
+    return `${vehicleInfo.color} ${vehicleInfo.make} ${vehicleInfo.model}`;
+  };
+
   if (isLoading) {
     return (
       <Card className="w-full">
@@ -240,7 +248,6 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
     );
   }
 
-  // If ride is completed, show rating UI
   if (ride.status === 'completed') {
     return (
       <Card className="w-full">
@@ -360,7 +367,7 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
                     <span>{driver.rating || '4.8'}</span>
                   </div>
                   <span>•</span>
-                  <span>{driver.vehicle_info?.color} {driver.vehicle_info?.make} {driver.vehicle_info?.model}</span>
+                  <span>{renderVehicleInfo()}</span>
                 </div>
               </div>
               <Button size="icon" variant="outline">

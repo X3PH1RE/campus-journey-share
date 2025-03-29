@@ -9,6 +9,44 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      driver_ratings: {
+        Row: {
+          comment: string | null
+          created_at: string
+          driver_id: string
+          id: string
+          rating: number
+          ride_id: string
+          rider_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          driver_id: string
+          id?: string
+          rating: number
+          ride_id: string
+          rider_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          driver_id?: string
+          id?: string
+          rating?: number
+          ride_id?: string
+          rider_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "driver_ratings_ride_id_fkey"
+            columns: ["ride_id"]
+            isOneToOne: false
+            referencedRelation: "ride_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -48,6 +86,51 @@ export type Database = {
           updated_at?: string
           username?: string | null
           vehicle_info?: Json | null
+        }
+        Relationships: []
+      }
+      ride_requests: {
+        Row: {
+          actual_fare: number | null
+          created_at: string
+          distance: number
+          driver_id: string | null
+          dropoff_location: Json
+          estimated_duration: number
+          estimated_fare: number
+          id: string
+          pickup_location: Json
+          rider_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_fare?: number | null
+          created_at?: string
+          distance: number
+          driver_id?: string | null
+          dropoff_location: Json
+          estimated_duration: number
+          estimated_fare: number
+          id?: string
+          pickup_location: Json
+          rider_id: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          actual_fare?: number | null
+          created_at?: string
+          distance?: number
+          driver_id?: string | null
+          dropoff_location?: Json
+          estimated_duration?: number
+          estimated_fare?: number
+          id?: string
+          pickup_location?: Json
+          rider_id?: string
+          status?: string
+          updated_at?: string
         }
         Relationships: []
       }
