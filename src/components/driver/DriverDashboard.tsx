@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -43,57 +44,78 @@ export default function DriverDashboard() {
   const { toast } = useToast();
   
   useEffect(() => {
-    if (!user || !isOnline) return;
+    if (!user) return;
     
-    // Listen for new ride requests
-    const subscription = supabase
-      .channel('ride_requests_channel')
+    // Always fetch any currently assigned ride, regardless of online status
+    fetchCurrentRide();
+    
+    // Fetch earnings data
+    fetchEarnings();
+    
+    // Only listen for new ride requests if online
+    if (!isOnline) return;
+    
+    // Listen for new ride requests with optimized channel setup
+    const channel = supabase
+      .channel('public:ride_requests:status=eq.searching')
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
         table: 'ride_requests',
         filter: `status=eq.searching`,
       }, payload => {
+        console.log('New ride request received:', payload);
         // Add new ride request to the list
-        setRideRequests(prev => [payload.new as unknown as Ride, ...prev]);
+        setRideRequests(prev => {
+          // Check if this ride is already in our list
+          const exists = prev.some(ride => ride.id === (payload.new as any).id);
+          if (exists) return prev;
+          return [(payload.new as unknown as Ride), ...prev];
+        });
         
         toast({
           title: 'New ride request',
           description: 'A new ride request is available nearby.',
         });
       })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'ride_requests',
+        filter: `status=neq.searching`,
+      }, payload => {
+        console.log('Ride request updated:', payload);
+        // Remove ride from available requests if status is no longer searching
+        setRideRequests(prev => prev.filter(r => r.id !== (payload.new as any).id));
+      })
       .subscribe();
-      
-    // Fetch existing ride requests
+    
+    // Fetch existing ride requests upon going online
     fetchRideRequests();
     
-    // Check if driver has an active ride
-    fetchCurrentRide();
-    
-    // Fetch earnings data
-    fetchEarnings();
-      
     return () => {
-      subscription.unsubscribe();
+      channel.unsubscribe();
     };
   }, [user, isOnline, toast]);
   
   // Listen for updates to current ride
   useEffect(() => {
-    if (!currentRide) return;
+    if (!currentRide || !user) return;
     
-    const subscription = supabase
-      .channel(`current_ride_${currentRide.id}`)
+    const channel = supabase
+      .channel(`public:ride_requests:id=eq.${currentRide.id}`)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'ride_requests',
         filter: `id=eq.${currentRide.id}`,
       }, payload => {
-        setCurrentRide(payload.new as unknown as Ride);
+        console.log('Current ride updated:', payload);
+        const updatedRide = payload.new as unknown as Ride;
+        setCurrentRide(updatedRide);
         
         // If ride was cancelled
-        if (payload.new.status === 'cancelled') {
+        if (updatedRide.status === 'cancelled') {
           toast({
             title: 'Ride cancelled',
             description: 'The rider has cancelled this ride.',
@@ -103,22 +125,23 @@ export default function DriverDashboard() {
         }
         
         // If ride was completed
-        if (payload.new.status === 'completed') {
+        if (updatedRide.status === 'completed') {
           toast({
             title: 'Ride completed',
-            description: `You've earned $${payload.new.actual_fare || payload.new.estimated_fare}.`,
+            description: `You've earned $${updatedRide.actual_fare || updatedRide.estimated_fare}.`,
           });
           
           // Refresh earnings
           fetchEarnings();
+          setCurrentRide(null);
         }
       })
       .subscribe();
       
     return () => {
-      subscription.unsubscribe();
+      channel.unsubscribe();
     };
-  }, [currentRide, toast]);
+  }, [currentRide, toast, user]);
   
   const fetchRideRequests = async () => {
     try {
@@ -132,6 +155,7 @@ export default function DriverDashboard() {
         
       if (error) throw error;
       
+      console.log('Fetched ride requests:', data);
       setRideRequests(data as unknown as Ride[]);
     } catch (error) {
       console.error('Error fetching ride requests:', error);

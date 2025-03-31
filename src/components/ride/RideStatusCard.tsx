@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { 
   Card, 
@@ -76,15 +77,7 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
         
         // If driver assigned, fetch driver profile
         if (rideData.driver_id) {
-          const { data: driverData, error: driverError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', rideData.driver_id)
-            .single();
-            
-          if (driverError) throw driverError;
-          
-          setDriver(driverData as Profile);
+          await fetchDriverProfile(rideData.driver_id);
         }
       } catch (error: any) {
         console.error('Error fetching ride details:', error);
@@ -100,37 +93,49 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
 
     fetchRideDetails();
     
-    // Subscribe to ride updates
-    const subscription = supabase
-      .channel(`ride_${rideId}`)
+    // Subscribe to ride updates in real-time
+    const channel = supabase
+      .channel(`public:ride_requests:id=eq.${rideId}`)
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
         table: 'ride_requests',
         filter: `id=eq.${rideId}` 
       }, payload => {
-        setRide(payload.new as unknown as Ride);
+        console.log('Real-time ride update received:', payload);
+        const updatedRide = payload.new as unknown as Ride;
+        setRide(updatedRide);
         
         // If driver just assigned, fetch driver profile
-        if (payload.new.driver_id && payload.new.driver_id !== payload.old?.driver_id) {
-          fetchDriverProfile(payload.new.driver_id);
+        if (updatedRide.driver_id && (!ride?.driver_id || updatedRide.driver_id !== ride?.driver_id)) {
+          fetchDriverProfile(updatedRide.driver_id);
         }
         
         // Show toast for status updates
-        if (payload.new.status !== payload.old?.status) {
-          const newStatus = payload.new.status as RideStatus;
+        if (updatedRide.status !== ride?.status) {
+          const newStatus = updatedRide.status as RideStatus;
           toast({
             title: "Ride status updated",
             description: statusMessages[newStatus],
           });
+
+          // If completed, trigger the completion handler
+          if (newStatus === 'completed') {
+            onComplete();
+          }
+          
+          // If cancelled, trigger the cancellation handler
+          if (newStatus === 'cancelled') {
+            onCancel();
+          }
         }
       })
       .subscribe();
       
     return () => {
-      subscription.unsubscribe();
+      channel.unsubscribe();
     };
-  }, [rideId, toast]);
+  }, [rideId, toast, onComplete, onCancel]);
   
   const fetchDriverProfile = async (driverId: string) => {
     try {

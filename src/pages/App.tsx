@@ -11,6 +11,7 @@ import RideStatusCard from '@/components/ride/RideStatusCard';
 import { Navigate } from 'react-router-dom';
 import { CarIcon, UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const AppPage = () => {
   const { user, isLoading, isDriver, toggleDriverMode } = useAuth();
@@ -32,6 +33,35 @@ const AppPage = () => {
       });
     }
   }, [isLoading, user]);
+
+  // Check for active rides when component mounts or user/driver mode changes
+  useEffect(() => {
+    if (!user || isLoading || isDriver) return;
+    
+    const checkActiveRides = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ride_requests')
+          .select('id, status')
+          .eq('rider_id', user.id)
+          .in('status', ['searching', 'driver_assigned', 'en_route', 'arrived', 'in_progress'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+          
+        if (error) throw error;
+        
+        if (data) {
+          console.log('Active ride found:', data);
+          setActiveRideId(data.id);
+        }
+      } catch (error) {
+        console.error('Error checking active rides:', error);
+      }
+    };
+    
+    checkActiveRides();
+  }, [user, isLoading, isDriver]);
 
   // Redirect if not logged in
   if (!isLoading && !user) {
