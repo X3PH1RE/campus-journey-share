@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { 
   Card, 
@@ -24,6 +25,7 @@ import {
   Loader2Icon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface RideStatusCardProps {
   rideId: string;
@@ -145,6 +147,7 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
         // Fetch the driver profile
         if (data.driver_id) {
           fetchDriverProfile(data.driver_id);
+          setIsLoading(false); // Stop loading indicator immediately
         }
         
         // Show toast notification
@@ -159,7 +162,7 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
     const handleRideAssigned = (data: any) => {
       console.log('RideStatusCard received ride assigned event:', data);
       
-      if (data.ride_id === rideId) {
+      if (data.ride_id === rideId || data.id === rideId) {
         // Refresh ride details after assignment
         fetchRideDetails();
         
@@ -173,6 +176,7 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
 
     // Join a room specific to this ride
     socket.emit('join_room', `ride_${rideId}`);
+    console.log(`Joined room: ride_${rideId}`);
     
     // Listen for ride updates through Socket.IO
     socket.on('ride_update', handleRideUpdate);
@@ -216,6 +220,12 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
         .eq('id', ride.id);
         
       if (error) throw error;
+      
+      // Notify all clients about the cancellation
+      socket.emit('ride_status_updated', {
+        ride_id: ride.id,
+        status: 'cancelled'
+      });
       
       toast({
         title: "Ride cancelled",
@@ -280,7 +290,7 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
     return `${vehicleInfo.color} ${vehicleInfo.make} ${vehicleInfo.model}`;
   };
 
-  if (isLoading) {
+  if (isLoading && !ride) {
     return (
       <Card className="w-full">
         <CardContent className="pt-6">
@@ -402,7 +412,7 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
               <span>{ride.distance} km</span>
             </div>
             <div className="flex items-center gap-1 text-sm font-medium">
-              <span>${ride.estimated_fare}</span>
+              <span>₹{ride.estimated_fare}</span>
             </div>
           </div>
         </div>
@@ -413,17 +423,17 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
             <div className="flex items-center gap-3">
               <Avatar>
                 <AvatarImage src={driver.avatar_url || ''} />
-                <AvatarFallback>{driver.full_name.charAt(0)}</AvatarFallback>
+                <AvatarFallback>{driver.full_name ? driver.full_name.charAt(0) : 'D'}</AvatarFallback>
               </Avatar>
               <div className="flex-1">
-                <p className="font-medium">{driver.full_name}</p>
+                <p className="font-medium">{driver.full_name || 'Driver'}</p>
                 <div className="flex gap-2 items-center text-sm text-muted-foreground">
                   <div className="flex items-center">
                     <StarIcon className="h-3 w-3 text-yellow-500 mr-1" />
                     <span>{driver.rating || '4.8'}</span>
                   </div>
                   <span>•</span>
-                  <span>{renderVehicleInfo()}</span>
+                  <span>{renderVehicleInfo() || 'Vehicle info not available'}</span>
                 </div>
               </div>
               <Button size="icon" variant="outline">

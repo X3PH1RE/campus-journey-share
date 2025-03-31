@@ -86,6 +86,7 @@ const AppPage = () => {
         // Only process if we're in rider mode and this is for us
         if (!isDriver && data.rider_id === user.id) {
           setActiveRideId(data.ride_id || data.id);
+          setIsLoading(false); // Stop any loading indicators
           
           // Join the Socket.IO room for this ride
           socket.emit('join_room', `ride_${data.ride_id || data.id}`);
@@ -214,7 +215,7 @@ const AppPage = () => {
     <MainLayout>
       <div className="flex flex-col md:flex-row h-[calc(100vh-60px)]">
         {/* Map Area - Make sure it's contained within its parent div */}
-        <div className="relative flex-1 h-[40vh] md:h-full">
+        <div className="relative flex-1 h-[40vh] md:h-full overflow-hidden">
           <MapComponent
             mode={isDriver ? 'driver' : mapMode}
             onLocationSelect={handleLocationSelect}
@@ -242,7 +243,7 @@ const AppPage = () => {
         </div>
         
         {/* Content Area - Sidebar for forms and info */}
-        <div className="w-full md:w-[400px] p-4 overflow-y-auto bg-background shadow-lg">
+        <div className="w-full md:w-[400px] p-4 overflow-y-auto bg-background shadow-lg z-10">
           {isDriver ? (
             <DriverDashboard />
           ) : (

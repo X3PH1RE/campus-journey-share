@@ -10,10 +10,10 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIU
 // For demo purposes, we'll use a public Socket.IO server. In production, you'd use your own server.
 export const socket = io('https://socket-io-server-demo.glitch.me/', {
   reconnection: true,
-  reconnectionAttempts: 5,
+  reconnectionAttempts: 10,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
-  timeout: 20000,
+  timeout: 30000,
   transports: ['websocket', 'polling'] // Try websocket first, fall back to polling
 });
 
@@ -39,6 +39,12 @@ socket.on('connect_error', (error) => {
   console.error('Socket.IO connection error:', error);
   // Don't log the full error object, as it may cause circular reference issues
   console.error('Connection error message:', error.message);
+  
+  // Auto-reconnect after a delay
+  setTimeout(() => {
+    console.log('Attempting to reconnect to Socket.IO server...');
+    socket.connect();
+  }, 5000);
 });
 
 // Set up socket event listeners for ride updates

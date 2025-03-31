@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import LocationSearch from '@/components/map/LocationSearch';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, socket } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2Icon } from 'lucide-react';
 
@@ -33,7 +33,7 @@ export default function RideRequestForm({ onRequestSubmit }: RideRequestFormProp
   const { toast } = useToast();
   const { user } = useAuth();
   
-  // Mock function to calculate fare based on distance
+  // Calculate fare based on distance - 10 rupees per km
   const calculateEstimates = () => {
     if (!pickup || !dropoff) return;
     
@@ -53,8 +53,12 @@ export default function RideRequestForm({ onRequestSubmit }: RideRequestFormProp
     // Set estimates
     const roundedDistance = Math.round(distanceInKm * 10) / 10;
     setDistance(roundedDistance);
-    setEstimatedFare(Math.round(2 + roundedDistance * 1.5)); // Base fare $2 + $1.50 per km
-    setEstimatedTime(Math.round(roundedDistance * 3)); // 3 minutes per km
+    
+    // Base fare 20 rupees + 10 rupees per km
+    setEstimatedFare(Math.round(20 + roundedDistance * 10)); 
+    
+    // 3 minutes per km
+    setEstimatedTime(Math.round(roundedDistance * 3)); 
   };
   
   // Update estimates when pickup or dropoff changes
@@ -122,6 +126,19 @@ export default function RideRequestForm({ onRequestSubmit }: RideRequestFormProp
       });
       
       if (data && data[0]) {
+        // Emit a socket event to notify all drivers about the new ride request
+        socket.emit('new_ride_request', {
+          ride_id: data[0].id,
+          rider_id: user.id,
+          pickup: pickup,
+          dropoff: dropoff,
+          status: 'searching',
+          estimated_fare: estimatedFare,
+          estimated_duration: estimatedTime,
+          distance: distance
+        });
+        
+        // Call the onRequestSubmit callback
         onRequestSubmit(data[0].id);
       }
     } catch (error: any) {
@@ -163,7 +180,7 @@ export default function RideRequestForm({ onRequestSubmit }: RideRequestFormProp
             <div className="grid grid-cols-3 gap-2 bg-accent/50 p-3 rounded-lg">
               <div className="text-center">
                 <p className="text-muted-foreground text-xs">Fare</p>
-                <p className="font-semibold">${estimatedFare}</p>
+                <p className="font-semibold">₹{estimatedFare}</p>
               </div>
               <div className="text-center border-x border-border">
                 <p className="text-muted-foreground text-xs">Time</p>
