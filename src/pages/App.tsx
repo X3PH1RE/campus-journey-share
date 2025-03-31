@@ -36,48 +36,59 @@ const AppPage = () => {
 
   // Check for active rides when component mounts or user/driver mode changes
   useEffect(() => {
-    if (!user || isLoading || isDriver) return;
+    if (!user || isLoading) return;
     
-    const checkActiveRides = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('ride_requests')
-          .select('id, status')
-          .eq('rider_id', user.id)
-          .in('status', ['searching', 'driver_assigned', 'en_route', 'arrived', 'in_progress'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    // When switching to rider mode, check for active rides
+    if (!isDriver) {
+      const checkActiveRides = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('ride_requests')
+            .select('id, status')
+            .eq('rider_id', user.id)
+            .in('status', ['searching', 'driver_assigned', 'en_route', 'arrived', 'in_progress'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+            
+          if (error) throw error;
           
-        if (error) throw error;
-        
-        if (data) {
-          console.log('Active ride found:', data);
-          setActiveRideId(data.id);
-          
-          // Join the Socket.IO room for this ride
-          socket.emit('join_room', `ride_${data.id}`);
+          if (data) {
+            console.log('Active ride found:', data);
+            setActiveRideId(data.id);
+            
+            // Join the Socket.IO room for this ride
+            socket.emit('join_room', `ride_${data.id}`);
+          }
+        } catch (error) {
+          console.error('Error checking active rides:', error);
         }
-      } catch (error) {
-        console.error('Error checking active rides:', error);
-      }
-    };
+      };
+      
+      checkActiveRides();
+    } else {
+      // If switching to driver mode, clear active ride
+      setActiveRideId(null);
+    }
     
-    checkActiveRides();
-    
-    // Set up Socket.IO listener for ride updates specific to this rider
+    // Set up Socket.IO listeners for user mode
     if (user.id) {
-      // Join the room for this rider
-      socket.emit('join_room', `rider_${user.id}`);
+      const roomId = isDriver ? `driver_${user.id}` : `rider_${user.id}`;
+      
+      // Join the room for this user
+      socket.emit('join_room', roomId);
+      console.log(`Joined room: ${roomId}`);
       
       // Set up listener for ride assignments
       const handleRideAssignment = (data: any) => {
-        console.log('Rider received ride assignment:', data);
-        if (data.rider_id === user.id) {
-          setActiveRideId(data.ride_id);
+        console.log(`${isDriver ? 'Driver' : 'Rider'} received ride assignment:`, data);
+        
+        // Only process if we're in rider mode and this is for us
+        if (!isDriver && data.rider_id === user.id) {
+          setActiveRideId(data.ride_id || data.id);
           
           // Join the Socket.IO room for this ride
-          socket.emit('join_room', `ride_${data.ride_id}`);
+          socket.emit('join_room', `ride_${data.ride_id || data.id}`);
           
           toast('Driver assigned', {
             description: 'A driver has been assigned to your ride',
@@ -87,14 +98,40 @@ const AppPage = () => {
       
       // Set up listener for ride updates
       const handleRideUpdate = (payload: any) => {
-        console.log('Rider received ride update:', payload);
-        // If this is a ride acceptance update for the rider's current request
-        if (payload.new && 
-            payload.new.rider_id === user.id && 
-            payload.new.status === 'driver_assigned') {
+        console.log(`${isDriver ? 'Driver' : 'Rider'} received ride update:`, payload);
+        
+        // If this is a ride update for the rider's current request
+        if (!isDriver && payload.new && payload.new.rider_id === user.id) {
+          // Handle various status updates
+          if (payload.new.status === 'driver_assigned') {
+            console.log('Driver assigned to ride:', payload.new);
+            setActiveRideId(payload.new.id);
+            
+            // Join the Socket.IO room for this ride if not already joined
+            socket.emit('join_room', `ride_${payload.new.id}`);
+            
+            toast('Driver assigned', {
+              description: 'A driver has been assigned to your ride',
+            });
+          }
           
-          console.log('Driver assigned to ride:', payload.new);
-          setActiveRideId(payload.new.id);
+          // For all other updates, just ensure we have the active ride ID set
+          else if (!activeRideId && ['en_route', 'arrived', 'in_progress'].includes(payload.new.status)) {
+            setActiveRideId(payload.new.id);
+          }
+        }
+      };
+      
+      // Direct event for ride acceptance
+      const handleRideAccepted = (data: any) => {
+        console.log(`${isDriver ? 'Driver' : 'Rider'} received ride accepted event:`, data);
+        
+        // Only process if we're in rider mode and this is for our ride
+        if (!isDriver && data.rider_id === user.id) {
+          setActiveRideId(data.id);
+          
+          // Join the Socket.IO room for this ride
+          socket.emit('join_room', `ride_${data.id}`);
           
           toast('Driver assigned', {
             description: 'A driver has been assigned to your ride',
@@ -103,23 +140,25 @@ const AppPage = () => {
       };
       
       socket.on('ride_assigned', handleRideAssignment);
-      socket.on('ride_accepted', handleRideAssignment);
+      socket.on('ride_accepted', handleRideAccepted);
       socket.on('ride_update', handleRideUpdate);
       
       return () => {
         // Leave the room and remove listeners when component unmounts
-        if (user.id) {
-          socket.emit('leave_room', `rider_${user.id}`);
-          socket.off('ride_assigned', handleRideAssignment);
-          socket.off('ride_accepted', handleRideAssignment);
-          socket.off('ride_update', handleRideUpdate);
-        }
+        socket.emit('leave_room', roomId);
+        console.log(`Left room: ${roomId}`);
+        
+        socket.off('ride_assigned', handleRideAssignment);
+        socket.off('ride_accepted', handleRideAccepted);
+        socket.off('ride_update', handleRideUpdate);
+        
         if (activeRideId) {
           socket.emit('leave_room', `ride_${activeRideId}`);
+          console.log(`Left room: ride_${activeRideId}`);
         }
       };
     }
-  }, [user, isLoading, isDriver, activeRideId]);
+  }, [user, isLoading, isDriver]);
 
   // Redirect if not logged in
   if (!isLoading && !user) {
@@ -174,8 +213,8 @@ const AppPage = () => {
   return (
     <MainLayout>
       <div className="flex flex-col md:flex-row h-[calc(100vh-60px)]">
-        {/* Map Area - Takes up more space on larger screens but doesn't overlay content */}
-        <div className="flex-1 h-[40vh] md:h-full relative">
+        {/* Map Area - Make sure it's contained within its parent div */}
+        <div className="relative flex-1 h-[40vh] md:h-full">
           <MapComponent
             mode={isDriver ? 'driver' : mapMode}
             onLocationSelect={handleLocationSelect}

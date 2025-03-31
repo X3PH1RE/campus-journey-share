@@ -97,7 +97,7 @@ const MapComponent: React.FC<MapComponentProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full min-h-[300px]">
+    <div className="h-full w-full overflow-hidden">
       {/* Add CSS styles */}
       <style>
         {`
@@ -127,85 +127,81 @@ const MapComponent: React.FC<MapComponentProps> = ({
           height: 100%;
           width: 100%;
           border-radius: 0.5rem;
+          overflow: hidden;
+          position: relative;
+        }
+
+        /* Ensure the map stays contained */
+        .leaflet-pane,
+        .leaflet-control-container,
+        .leaflet-top,
+        .leaflet-bottom {
+          z-index: 400 !important; /* Lower z-index to avoid overlap with UI */
+          pointer-events: auto;
+        }
+
+        /* Make sure all controls are visible and accessible */
+        .leaflet-control {
+          pointer-events: auto !important;
+          z-index: 800 !important;
         }
         `}
       </style>
       
-      <div className="leaflet-container">
-        <MapContainer
-          className="h-full w-full rounded-lg"
+      <MapContainer
+        className="h-full w-full rounded-lg"
+        // @ts-ignore - React-Leaflet props type mismatch
+        center={center}
+        // @ts-ignore - React-Leaflet props type mismatch
+        zoom={zoom}
+        style={{ height: '100%', width: '100%' }}
+      >
+        <ChangeView center={center} zoom={zoom} />
+        
+        {/* Base map layer */}
+        <TileLayer
           // @ts-ignore - React-Leaflet props type mismatch
-          center={center}
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           // @ts-ignore - React-Leaflet props type mismatch
-          zoom={zoom}
-        >
-          <ChangeView center={center} zoom={zoom} />
-          
-          {/* Base map layer */}
-          <TileLayer
-            // @ts-ignore - React-Leaflet props type mismatch
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            // @ts-ignore - React-Leaflet props type mismatch
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        
+        {/* Route polylines */}
+        {routes.map((route, index) => (
+          <Polyline 
+            key={`route-${index}`}
+            // @ts-ignore - Type mismatch between LatLngExpression[][] and our format
+            positions={route.coordinates.map(coord => [coord[1], coord[0]])} 
+            pathOptions={{ 
+              color: route.type === 'pickup' ? '#10B981' : '#EF4444', 
+              weight: 4, 
+              opacity: 0.8 
+            }}
           />
-          
-          {/* Route polylines */}
-          {routes.map((route, index) => (
-            <Polyline 
-              key={`route-${index}`}
-              // @ts-ignore - Type mismatch between LatLngExpression[][] and our format
-              positions={route.coordinates.map(coord => [coord[1], coord[0]])} 
-              pathOptions={{ 
-                color: route.type === 'pickup' ? '#10B981' : '#EF4444', 
-                weight: 4, 
-                opacity: 0.8 
-              }}
-            />
-          ))}
-          
-          {/* Markers */}
-          {markers.map((marker) => (
-            <Marker
-              key={marker.id}
-              // @ts-ignore - Type definitions don't match actual prop requirements
-              position={[marker.lngLat[1], marker.lngLat[0]]}
-              // @ts-ignore - Type definitions don't match actual prop requirements
-              icon={getMarkerIcon(marker.type)}
-            >
-              <Popup>
-                {marker.type.charAt(0).toUpperCase() + marker.type.slice(1)} location
-              </Popup>
-            </Marker>
-          ))}
-          
-          {/* Map click handler setup */}
-          {onMapClick && (
-            <div
-              className="absolute inset-0 z-[400]"
-              onClick={(e) => {
-                // This is handled outside of Leaflet as a workaround
-                // We're not using the actual onClick event from the map because we need
-                // to prevent clicks on markers and controls
-                if (!(e.target as HTMLElement).closest('.leaflet-control') && 
-                    !(e.target as HTMLElement).closest('.leaflet-marker-icon')) {
-                  const map = (e.currentTarget as HTMLElement).closest('.leaflet-container');
-                  if (map) {
-                    const rect = map.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    // This is a simplified approach and may need adjustment
-                    handleMapClick({
-                      latlng: L.point(x, y) as any,
-                      // Other properties aren't used in handleMapClick
-                    } as L.LeafletMouseEvent);
-                  }
-                }
-              }}
-              style={{ pointerEvents: 'none' }}
-            />
-          )}
-        </MapContainer>
-      </div>
+        ))}
+        
+        {/* Markers */}
+        {markers.map((marker) => (
+          <Marker
+            key={marker.id}
+            // @ts-ignore - Type definitions don't match actual prop requirements
+            position={[marker.lngLat[1], marker.lngLat[0]]}
+            // @ts-ignore - Type definitions don't match actual prop requirements
+            icon={getMarkerIcon(marker.type)}
+          >
+            <Popup>
+              {marker.type.charAt(0).toUpperCase() + marker.type.slice(1)} location
+            </Popup>
+          </Marker>
+        ))}
+        
+        {/* Map click handler setup */}
+        {onMapClick && (
+          <div className="absolute inset-0 z-[400]">
+            {/* This div is just to capture clicks, but shouldn't affect layout */}
+          </div>
+        )}
+      </MapContainer>
     </div>
   );
 };

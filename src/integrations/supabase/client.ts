@@ -13,7 +13,8 @@ export const socket = io('https://socket-io-server-demo.glitch.me/', {
   reconnectionAttempts: 5,
   reconnectionDelay: 1000,
   reconnectionDelayMax: 5000,
-  timeout: 20000
+  timeout: 20000,
+  transports: ['websocket', 'polling'] // Try websocket first, fall back to polling
 });
 
 // Initialize Supabase client
@@ -25,15 +26,22 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
-// Set up socket event listeners for ride updates
+// Set up socket event listeners for connection status
 socket.on('connect', () => {
   console.log('Connected to Socket.IO server with ID:', socket.id);
 });
 
-socket.on('connect_error', (error) => {
-  console.error('Socket.IO connection error:', error);
+socket.on('disconnect', () => {
+  console.log('Disconnected from Socket.IO server');
 });
 
+socket.on('connect_error', (error) => {
+  console.error('Socket.IO connection error:', error);
+  // Don't log the full error object, as it may cause circular reference issues
+  console.error('Connection error message:', error.message);
+});
+
+// Set up socket event listeners for ride updates
 socket.on('ride_assigned', (data) => {
   console.log('Ride assigned event received:', data);
 });
