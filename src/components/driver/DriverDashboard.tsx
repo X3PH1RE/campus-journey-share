@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -13,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, socket } from '@/integrations/supabase/client';
 import { Ride, VehicleInfo } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -52,66 +51,40 @@ export default function DriverDashboard() {
     // Fetch earnings data
     fetchEarnings();
     
-    // Only listen for new ride requests if online
-    if (!isOnline) return;
+    // Set up Socket.IO room for this driver
+    if (user.id) {
+      socket.emit('join_room', `driver_${user.id}`);
+    }
     
-    // Listen for new ride requests with optimized channel setup
-    const channel = supabase
-      .channel('public:ride_requests:status=eq.searching')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'ride_requests',
-        filter: `status=eq.searching`,
-      }, payload => {
-        console.log('New ride request received:', payload);
-        // Add new ride request to the list
+    // Listen for new ride requests
+    const handleNewRideRequest = (rideRequest: any) => {
+      console.log('New ride request received via Socket.IO:', rideRequest);
+      
+      // Only add to list if driver is online
+      if (isOnline) {
         setRideRequests(prev => {
           // Check if this ride is already in our list
-          const exists = prev.some(ride => ride.id === (payload.new as any).id);
+          const exists = prev.some(ride => ride.id === rideRequest.id);
           if (exists) return prev;
-          return [(payload.new as unknown as Ride), ...prev];
+          return [rideRequest as unknown as Ride, ...prev];
         });
         
         toast({
           title: 'New ride request',
           description: 'A new ride request is available nearby.',
         });
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'ride_requests',
-        filter: `status=neq.searching`,
-      }, payload => {
-        console.log('Ride request updated:', payload);
-        // Remove ride from available requests if status is no longer searching
-        setRideRequests(prev => prev.filter(r => r.id !== (payload.new as any).id));
-      })
-      .subscribe();
-    
-    // Fetch existing ride requests upon going online
-    fetchRideRequests();
-    
-    return () => {
-      channel.unsubscribe();
+      }
     };
-  }, [user, isOnline, toast]);
-  
-  // Listen for updates to current ride
-  useEffect(() => {
-    if (!currentRide || !user) return;
     
-    const channel = supabase
-      .channel(`public:ride_requests:id=eq.${currentRide.id}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'ride_requests',
-        filter: `id=eq.${currentRide.id}`,
-      }, payload => {
-        console.log('Current ride updated:', payload);
-        const updatedRide = payload.new as unknown as Ride;
+    // Listen for ride updates
+    const handleRideUpdate = (payload: any) => {
+      if (!payload.new) return;
+      
+      const updatedRide = payload.new as unknown as Ride;
+      
+      // If this is the driver's current ride
+      if (currentRide && updatedRide.id === currentRide.id) {
+        console.log('Current ride updated via Socket.IO:', updatedRide);
         setCurrentRide(updatedRide);
         
         // If ride was cancelled
@@ -135,13 +108,31 @@ export default function DriverDashboard() {
           fetchEarnings();
           setCurrentRide(null);
         }
-      })
-      .subscribe();
+      }
       
-    return () => {
-      channel.unsubscribe();
+      // If this is in the available rides list and no longer searching, remove it
+      if (updatedRide.status !== 'searching') {
+        setRideRequests(prev => prev.filter(r => r.id !== updatedRide.id));
+      }
     };
-  }, [currentRide, toast, user]);
+    
+    socket.on('new_ride_request', handleNewRideRequest);
+    socket.on('ride_update', handleRideUpdate);
+    
+    // Only fetch available ride requests if online
+    if (isOnline) {
+      fetchRideRequests();
+    }
+    
+    return () => {
+      // Clean up Socket.IO listeners
+      if (user.id) {
+        socket.emit('leave_room', `driver_${user.id}`);
+      }
+      socket.off('new_ride_request', handleNewRideRequest);
+      socket.off('ride_update', handleRideUpdate);
+    };
+  }, [user, isOnline, toast, currentRide]);
   
   const fetchRideRequests = async () => {
     try {
@@ -255,11 +246,21 @@ export default function DriverDashboard() {
       
       // Refresh ride requests when going online
       fetchRideRequests();
+      
+      // Notify the server that driver is online
+      if (user?.id) {
+        socket.emit('driver_online', { driver_id: user.id });
+      }
     } else {
       toast({
         title: 'You are now offline',
         description: 'You will not receive any new ride requests.',
       });
+      
+      // Notify the server that driver is offline
+      if (user?.id) {
+        socket.emit('driver_offline', { driver_id: user.id });
+      }
     }
   };
   
@@ -289,6 +290,13 @@ export default function DriverDashboard() {
       
       // Remove from available requests
       setRideRequests(prev => prev.filter(r => r.id !== ride.id));
+      
+      // Emit Socket.IO event for immediate notification
+      socket.emit('ride_accepted', {
+        ride_id: ride.id,
+        driver_id: user.id,
+        status: 'driver_assigned'
+      });
       
       toast({
         title: 'Ride accepted',
@@ -331,6 +339,12 @@ export default function DriverDashboard() {
         status: status as any,
       });
       
+      // Emit Socket.IO event for immediate notification
+      socket.emit('ride_status_updated', {
+        ride_id: currentRide.id,
+        status: status
+      });
+      
       toast({
         title: 'Status updated',
         description: `Ride status updated to ${status.replace('_', ' ')}.`,
@@ -363,6 +377,12 @@ export default function DriverDashboard() {
         
       if (error) throw error;
       
+      // Emit Socket.IO event for immediate notification
+      socket.emit('ride_completed', {
+        ride_id: currentRide.id,
+        actual_fare: currentRide.estimated_fare
+      });
+      
       setCurrentRide(null);
       
       toast({
@@ -384,7 +404,6 @@ export default function DriverDashboard() {
     }
   };
 
-  // Generate map markers
   const getMapMarkers = () => {
     const markers = [];
     
@@ -433,7 +452,6 @@ export default function DriverDashboard() {
     return markers;
   };
   
-  // Generate routes for the map
   const getMapRoutes = () => {
     const routes = [];
     

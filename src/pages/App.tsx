@@ -11,7 +11,7 @@ import RideStatusCard from '@/components/ride/RideStatusCard';
 import { Navigate } from 'react-router-dom';
 import { CarIcon, UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, socket } from '@/integrations/supabase/client';
 
 const AppPage = () => {
   const { user, isLoading, isDriver, toggleDriverMode } = useAuth();
@@ -54,6 +54,9 @@ const AppPage = () => {
         if (data) {
           console.log('Active ride found:', data);
           setActiveRideId(data.id);
+          
+          // Join the Socket.IO room for this ride
+          socket.emit('join_room', `ride_${data.id}`);
         }
       } catch (error) {
         console.error('Error checking active rides:', error);
@@ -61,7 +64,39 @@ const AppPage = () => {
     };
     
     checkActiveRides();
-  }, [user, isLoading, isDriver]);
+    
+    // Set up Socket.IO listener for ride updates
+    if (user.id) {
+      // Join the room for this rider
+      socket.emit('join_room', `rider_${user.id}`);
+      
+      // Listen for new ride assignments
+      const handleNewRideAssignment = (data: any) => {
+        if (data.rider_id === user.id) {
+          console.log('New ride assignment via Socket.IO:', data);
+          setActiveRideId(data.ride_id);
+          
+          // Join the Socket.IO room for this ride
+          socket.emit('join_room', `ride_${data.ride_id}`);
+          
+          toast('Ride status updated', {
+            description: 'A driver has been assigned to your ride',
+          });
+        }
+      };
+      
+      socket.on('ride_assigned', handleNewRideAssignment);
+      
+      return () => {
+        // Leave the room and remove listeners when component unmounts
+        socket.emit('leave_room', `rider_${user.id}`);
+        socket.off('ride_assigned', handleNewRideAssignment);
+        if (activeRideId) {
+          socket.emit('leave_room', `ride_${activeRideId}`);
+        }
+      };
+    }
+  }, [user, isLoading, isDriver, activeRideId]);
 
   // Redirect if not logged in
   if (!isLoading && !user) {
@@ -70,12 +105,24 @@ const AppPage = () => {
 
   const handleRideRequested = (rideId: string) => {
     setActiveRideId(rideId);
+    
+    // Join the Socket.IO room for this ride
+    socket.emit('join_room', `ride_${rideId}`);
+    
     toast('Ride requested', {
       description: 'Looking for drivers near you...',
     });
+    
+    // Broadcast a new ride request to all online drivers
+    socket.emit('new_ride_request', { ride_id: rideId });
   };
 
   const handleRideCancelled = () => {
+    // Leave the Socket.IO room for this ride
+    if (activeRideId) {
+      socket.emit('leave_room', `ride_${activeRideId}`);
+    }
+    
     setActiveRideId(null);
     toast('Ride cancelled', {
       description: 'Your ride has been cancelled',
@@ -83,6 +130,11 @@ const AppPage = () => {
   };
 
   const handleRideCompleted = () => {
+    // Leave the Socket.IO room for this ride
+    if (activeRideId) {
+      socket.emit('leave_room', `ride_${activeRideId}`);
+    }
+    
     setActiveRideId(null);
     toast('Ride completed', {
       description: 'Thanks for riding with Hailo!',

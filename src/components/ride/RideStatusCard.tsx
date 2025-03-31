@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { 
   Card, 
@@ -12,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, socket } from '@/integrations/supabase/client';
 import { Profile, Ride, RideStatus, VehicleInfo } from '@/lib/supabase';
 import { 
   ClockIcon, 
@@ -93,16 +92,10 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
 
     fetchRideDetails();
     
-    // Subscribe to ride updates in real-time
-    const channel = supabase
-      .channel(`public:ride_requests:id=eq.${rideId}`)
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'ride_requests',
-        filter: `id=eq.${rideId}` 
-      }, payload => {
-        console.log('Real-time ride update received:', payload);
+    // Socket.IO listener for ride updates
+    const handleRideUpdate = (payload: any) => {
+      if (payload.new && payload.new.id === rideId) {
+        console.log('Socket.IO ride update received:', payload);
         const updatedRide = payload.new as unknown as Ride;
         setRide(updatedRide);
         
@@ -129,13 +122,21 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
             onCancel();
           }
         }
-      })
-      .subscribe();
-      
-    return () => {
-      channel.unsubscribe();
+      }
     };
-  }, [rideId, toast, onComplete, onCancel]);
+
+    // Join a room specific to this ride
+    socket.emit('join_room', `ride_${rideId}`);
+    
+    // Listen for ride updates through Socket.IO
+    socket.on('ride_update', handleRideUpdate);
+    
+    return () => {
+      // Leave the room and remove listeners when component unmounts
+      socket.emit('leave_room', `ride_${rideId}`);
+      socket.off('ride_update', handleRideUpdate);
+    };
+  }, [rideId, toast, onComplete, onCancel, ride]);
   
   const fetchDriverProfile = async (driverId: string) => {
     try {
