@@ -6,9 +6,15 @@ import { io } from 'socket.io-client';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://wtsghljhxtnvgderntdh.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0c2dobGpoeHRudmdkZXJudGRoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyNTg4ODMsImV4cCI6MjA1ODgzNDg4M30.gJfy0tZ8EvRz00djTAt2xx_BShu5NZ1uvPIWhiwLuDI';
 
-// Initialize Socket.IO
+// Initialize Socket.IO with reconnection options
 // For demo purposes, we'll use a public Socket.IO server. In production, you'd use your own server.
-export const socket = io('https://socket-io-server-demo.glitch.me/');
+export const socket = io('https://socket-io-server-demo.glitch.me/', {
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 20000
+});
 
 // Initialize Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -21,11 +27,30 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 // Set up socket event listeners for ride updates
 socket.on('connect', () => {
-  console.log('Connected to Socket.IO server');
+  console.log('Connected to Socket.IO server with ID:', socket.id);
 });
 
 socket.on('connect_error', (error) => {
   console.error('Socket.IO connection error:', error);
+});
+
+socket.on('ride_assigned', (data) => {
+  console.log('Ride assigned event received:', data);
+});
+
+socket.on('ride_status_updated', (data) => {
+  console.log('Ride status updated event received:', data);
+});
+
+socket.on('ride_accepted', (data) => {
+  console.log('Ride accepted event received:', data);
+  
+  // This will broadcast the update to all clients listening for ride updates
+  socket.emit('ride_update', {
+    new: data,
+    eventType: 'UPDATE',
+    table: 'ride_requests'
+  });
 });
 
 // Enable real-time for ride_requests table

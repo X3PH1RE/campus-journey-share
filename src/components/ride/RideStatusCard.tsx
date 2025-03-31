@@ -92,10 +92,12 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
 
     fetchRideDetails();
     
-    // Socket.IO listener for ride updates
+    // Socket.IO listeners for ride updates
     const handleRideUpdate = (payload: any) => {
+      console.log('RideStatusCard received ride update:', payload);
+      
       if (payload.new && payload.new.id === rideId) {
-        console.log('Socket.IO ride update received:', payload);
+        console.log('Updating ride status from payload:', payload.new);
         const updatedRide = payload.new as unknown as Ride;
         setRide(updatedRide);
         
@@ -124,17 +126,65 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
         }
       }
     };
+    
+    // Handle direct ride acceptance
+    const handleRideAccepted = (data: any) => {
+      console.log('RideStatusCard received ride accepted event:', data);
+      
+      if (data.id === rideId) {
+        // Update the ride with driver info
+        setRide(prevRide => {
+          if (!prevRide) return null;
+          return {
+            ...prevRide,
+            driver_id: data.driver_id,
+            status: 'driver_assigned' as RideStatus
+          };
+        });
+        
+        // Fetch the driver profile
+        if (data.driver_id) {
+          fetchDriverProfile(data.driver_id);
+        }
+        
+        // Show toast notification
+        toast({
+          title: "Driver assigned",
+          description: "A driver has been assigned to your ride",
+        });
+      }
+    };
+    
+    // Handle ride assignment
+    const handleRideAssigned = (data: any) => {
+      console.log('RideStatusCard received ride assigned event:', data);
+      
+      if (data.ride_id === rideId) {
+        // Refresh ride details after assignment
+        fetchRideDetails();
+        
+        // Show toast notification
+        toast({
+          title: "Driver assigned",
+          description: "A driver has been assigned to your ride",
+        });
+      }
+    };
 
     // Join a room specific to this ride
     socket.emit('join_room', `ride_${rideId}`);
     
     // Listen for ride updates through Socket.IO
     socket.on('ride_update', handleRideUpdate);
+    socket.on('ride_accepted', handleRideAccepted);
+    socket.on('ride_assigned', handleRideAssigned);
     
     return () => {
       // Leave the room and remove listeners when component unmounts
       socket.emit('leave_room', `ride_${rideId}`);
       socket.off('ride_update', handleRideUpdate);
+      socket.off('ride_accepted', handleRideAccepted);
+      socket.off('ride_assigned', handleRideAssigned);
     };
   }, [rideId, toast, onComplete, onCancel, ride]);
   

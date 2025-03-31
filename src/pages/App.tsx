@@ -65,32 +65,55 @@ const AppPage = () => {
     
     checkActiveRides();
     
-    // Set up Socket.IO listener for ride updates
+    // Set up Socket.IO listener for ride updates specific to this rider
     if (user.id) {
       // Join the room for this rider
       socket.emit('join_room', `rider_${user.id}`);
       
-      // Listen for new ride assignments
-      const handleNewRideAssignment = (data: any) => {
+      // Set up listener for ride assignments
+      const handleRideAssignment = (data: any) => {
+        console.log('Rider received ride assignment:', data);
         if (data.rider_id === user.id) {
-          console.log('New ride assignment via Socket.IO:', data);
           setActiveRideId(data.ride_id);
           
           // Join the Socket.IO room for this ride
           socket.emit('join_room', `ride_${data.ride_id}`);
           
-          toast('Ride status updated', {
+          toast('Driver assigned', {
             description: 'A driver has been assigned to your ride',
           });
         }
       };
       
-      socket.on('ride_assigned', handleNewRideAssignment);
+      // Set up listener for ride updates
+      const handleRideUpdate = (payload: any) => {
+        console.log('Rider received ride update:', payload);
+        // If this is a ride acceptance update for the rider's current request
+        if (payload.new && 
+            payload.new.rider_id === user.id && 
+            payload.new.status === 'driver_assigned') {
+          
+          console.log('Driver assigned to ride:', payload.new);
+          setActiveRideId(payload.new.id);
+          
+          toast('Driver assigned', {
+            description: 'A driver has been assigned to your ride',
+          });
+        }
+      };
+      
+      socket.on('ride_assigned', handleRideAssignment);
+      socket.on('ride_accepted', handleRideAssignment);
+      socket.on('ride_update', handleRideUpdate);
       
       return () => {
         // Leave the room and remove listeners when component unmounts
-        socket.emit('leave_room', `rider_${user.id}`);
-        socket.off('ride_assigned', handleNewRideAssignment);
+        if (user.id) {
+          socket.emit('leave_room', `rider_${user.id}`);
+          socket.off('ride_assigned', handleRideAssignment);
+          socket.off('ride_accepted', handleRideAssignment);
+          socket.off('ride_update', handleRideUpdate);
+        }
         if (activeRideId) {
           socket.emit('leave_room', `ride_${activeRideId}`);
         }
@@ -114,7 +137,10 @@ const AppPage = () => {
     });
     
     // Broadcast a new ride request to all online drivers
-    socket.emit('new_ride_request', { ride_id: rideId });
+    socket.emit('new_ride_request', { 
+      ride_id: rideId,
+      rider_id: user?.id
+    });
   };
 
   const handleRideCancelled = () => {

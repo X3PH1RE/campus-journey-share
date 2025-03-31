@@ -291,12 +291,32 @@ export default function DriverDashboard() {
       // Remove from available requests
       setRideRequests(prev => prev.filter(r => r.id !== ride.id));
       
-      // Emit Socket.IO event for immediate notification
-      socket.emit('ride_accepted', {
+      // Emit Socket.IO events for immediate notification with detailed data
+      const rideData = {
+        id: ride.id,
+        driver_id: user.id,
+        rider_id: ride.rider_id,
+        status: 'driver_assigned',
+        pickup_location: ride.pickup_location,
+        dropoff_location: ride.dropoff_location,
+        estimated_fare: ride.estimated_fare,
+        estimated_duration: ride.estimated_duration,
+        distance: ride.distance
+      };
+      
+      // Direct event for immediate UI update
+      socket.emit('ride_accepted', rideData);
+      
+      // Also emit to rider's specific room
+      socket.emit('ride_assigned', {
         ride_id: ride.id,
         driver_id: user.id,
+        rider_id: ride.rider_id,
         status: 'driver_assigned'
       });
+      
+      // Join the room for this specific ride
+      socket.emit('join_room', `ride_${ride.id}`);
       
       toast({
         title: 'Ride accepted',
