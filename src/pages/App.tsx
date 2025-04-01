@@ -14,16 +14,17 @@ import { toast } from 'sonner';
 import { supabase, socket } from '@/integrations/supabase/client';
 
 const AppPage = () => {
-  const { user, isLoading, isDriver, toggleDriverMode } = useAuth();
+  const { user, isLoading: authLoading, isDriver, toggleDriverMode } = useAuth();
   const [activeRideId, setActiveRideId] = useState<string | null>(null);
   const [mapMode, setMapMode] = useState<'pickup' | 'dropoff'>('pickup');
   const [selectedLocation, setSelectedLocation] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (!authLoading && !user) {
       toast('Please sign in to continue', {
         description: 'You need to be signed in to use this app',
         action: {
@@ -32,11 +33,11 @@ const AppPage = () => {
         },
       });
     }
-  }, [isLoading, user]);
+  }, [authLoading, user]);
 
   // Check for active rides when component mounts or user/driver mode changes
   useEffect(() => {
-    if (!user || isLoading) return;
+    if (!user || authLoading) return;
     
     // When switching to rider mode, check for active rides
     if (!isDriver) {
@@ -86,7 +87,7 @@ const AppPage = () => {
         // Only process if we're in rider mode and this is for us
         if (!isDriver && data.rider_id === user.id) {
           setActiveRideId(data.ride_id || data.id);
-          setIsLoading(false); // Stop any loading indicators
+          setIsSearching(false); // Stop any loading indicators
           
           // Join the Socket.IO room for this ride
           socket.emit('join_room', `ride_${data.ride_id || data.id}`);
@@ -130,6 +131,7 @@ const AppPage = () => {
         // Only process if we're in rider mode and this is for our ride
         if (!isDriver && data.rider_id === user.id) {
           setActiveRideId(data.id);
+          setIsSearching(false);
           
           // Join the Socket.IO room for this ride
           socket.emit('join_room', `ride_${data.id}`);
@@ -159,15 +161,16 @@ const AppPage = () => {
         }
       };
     }
-  }, [user, isLoading, isDriver]);
+  }, [user, authLoading, isDriver]);
 
   // Redirect if not logged in
-  if (!isLoading && !user) {
+  if (!authLoading && !user) {
     return <Navigate to="/auth" replace />;
   }
 
   const handleRideRequested = (rideId: string) => {
     setActiveRideId(rideId);
+    setIsSearching(true);
     
     // Join the Socket.IO room for this ride
     socket.emit('join_room', `ride_${rideId}`);
@@ -190,6 +193,7 @@ const AppPage = () => {
     }
     
     setActiveRideId(null);
+    setIsSearching(false);
     toast('Ride cancelled', {
       description: 'Your ride has been cancelled',
     });
@@ -202,6 +206,7 @@ const AppPage = () => {
     }
     
     setActiveRideId(null);
+    setIsSearching(false);
     toast('Ride completed', {
       description: 'Thanks for riding with Hailo!',
     });
@@ -253,6 +258,7 @@ const AppPage = () => {
                   rideId={activeRideId}
                   onCancel={handleRideCancelled}
                   onComplete={handleRideCompleted}
+                  isSearching={isSearching}
                 />
               ) : (
                 <RideRequestForm 
