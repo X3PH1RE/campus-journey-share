@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -253,7 +254,7 @@ const AppPage = () => {
           </div>
           
           {isMobile && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40">
               <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
                 <DrawerTrigger asChild>
                   <Button 
@@ -263,7 +264,7 @@ const AppPage = () => {
                     {isDriver ? "Driver Dashboard" : "Request a Ride"}
                   </Button>
                 </DrawerTrigger>
-                <DrawerContent className="max-h-[85vh]">
+                <DrawerContent className="max-h-[70vh]">
                   {renderSidebarContent()}
                 </DrawerContent>
               </Drawer>
