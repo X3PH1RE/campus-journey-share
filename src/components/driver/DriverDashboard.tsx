@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { 
   Card, 
@@ -18,7 +19,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { 
   CarIcon, 
-  DollarSignIcon, 
+  IndianRupeeIcon, 
   MapPinIcon, 
   ClockIcon,
   CheckIcon,
@@ -407,7 +408,7 @@ export default function DriverDashboard() {
       
       toast({
         title: 'Ride completed',
-        description: `You've earned $${currentRide.estimated_fare}.`,
+        description: `You've earned ₹${currentRide.estimated_fare}.`,
       });
       
       // Refresh earnings
@@ -546,7 +547,7 @@ export default function DriverDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex items-center">
-              <DollarSignIcon className="h-5 w-5 text-primary mr-1" />
+              <IndianRupeeIcon className="h-5 w-5 text-primary mr-1" />
               {earnings.today.toFixed(2)}
             </div>
           </CardContent>
@@ -558,7 +559,7 @@ export default function DriverDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex items-center">
-              <DollarSignIcon className="h-5 w-5 text-primary mr-1" />
+              <IndianRupeeIcon className="h-5 w-5 text-primary mr-1" />
               {earnings.week.toFixed(2)}
             </div>
           </CardContent>
@@ -570,7 +571,7 @@ export default function DriverDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold flex items-center">
-              <DollarSignIcon className="h-5 w-5 text-primary mr-1" />
+              <IndianRupeeIcon className="h-5 w-5 text-primary mr-1" />
               {earnings.total.toFixed(2)}
             </div>
           </CardContent>
@@ -617,7 +618,7 @@ export default function DriverDashboard() {
                       <span>{currentRide.distance} km</span>
                     </div>
                     <div className="flex items-center gap-1 text-sm font-medium">
-                      <span>${currentRide.estimated_fare}</span>
+                      <span>₹{currentRide.estimated_fare}</span>
                     </div>
                   </div>
                 </div>
@@ -742,7 +743,7 @@ export default function DriverDashboard() {
                                 <span>{ride.distance} km</span>
                               </div>
                               <div className="flex items-center gap-1 text-sm font-medium">
-                                <DollarSignIcon className="h-3 w-3" />
+                                <IndianRupeeIcon className="h-3 w-3" />
                                 <span>{ride.estimated_fare}</span>
                               </div>
                             </div>
