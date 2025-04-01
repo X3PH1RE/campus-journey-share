@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import RideRequestForm from '@/components/ride/RideRequestForm';
 import MainLayout from '@/components/layout/MainLayout';
 import DriverDashboard from '@/components/driver/DriverDashboard';
@@ -218,59 +219,54 @@ const AppPage = () => {
   return (
     <MainLayout>
       <div className="flex flex-col md:flex-row h-[calc(100vh-60px)]">
-        {/* Main content area with sidebar and map container */}
-        <div className="flex flex-col md:flex-row w-full h-full">
-          {/* Sidebar content - Forms and info */}
-          <div className="w-full md:w-[400px] p-4 bg-background z-10 order-2 md:order-1">
-            {isDriver ? (
-              <DriverDashboard />
-            ) : (
-              <div className="space-y-4">
-                {activeRideId ? (
-                  <RideStatusCard 
-                    rideId={activeRideId}
-                    onCancel={handleRideCancelled}
-                    onComplete={handleRideCompleted}
-                    isSearching={isSearching}
-                  />
-                ) : (
-                  <RideRequestForm 
-                    onRequestSubmit={(rideId: string) => handleRideRequested(rideId)} 
-                  />
-                )}
-              </div>
-            )}
-          </div>
+        {/* Map Area - Make sure it's contained within its parent div */}
+        <div className="relative flex-1 h-[40vh] md:h-full overflow-hidden">
+          <MapComponent
+            mode={isDriver ? 'driver' : mapMode}
+            onLocationSelect={handleLocationSelect}
+          />
           
-          {/* Map container with fixed dimensions */}
-          <div className="relative w-full h-[40vh] md:h-auto md:flex-1 order-1 md:order-2">
-            <div className="absolute inset-0 bg-gray-100 rounded-lg overflow-hidden">
-              <MapComponent
-                mode={isDriver ? 'driver' : mapMode}
-                onLocationSelect={handleLocationSelect}
-              />
-            </div>
-            
-            <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
-              <Button 
-                variant="outline" 
-                className="bg-background/80 backdrop-blur-sm flex items-center justify-center gap-2 shadow-md"
-                onClick={toggleDriverMode}
-              >
-                {isDriver ? (
-                  <>
-                    <UserIcon className="h-4 w-4" />
-                    <span>Rider Mode</span>
-                  </>
-                ) : (
-                  <>
-                    <CarIcon className="h-4 w-4" />
-                    <span>Driver Mode</span>
-                  </>
-                )}
-              </Button>
-            </div>
+          <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+            <Button 
+              variant="outline" 
+              className="bg-background/80 backdrop-blur-sm flex items-center justify-center gap-2 shadow-md"
+              onClick={toggleDriverMode}
+            >
+              {isDriver ? (
+                <>
+                  <UserIcon className="h-4 w-4" />
+                  <span>Rider Mode</span>
+                </>
+              ) : (
+                <>
+                  <CarIcon className="h-4 w-4" />
+                  <span>Driver Mode</span>
+                </>
+              )}
+            </Button>
           </div>
+        </div>
+        
+        {/* Content Area - Sidebar for forms and info */}
+        <div className="w-full md:w-[400px] p-4 overflow-y-auto bg-background shadow-lg z-10">
+          {isDriver ? (
+            <DriverDashboard />
+          ) : (
+            <div className="space-y-4">
+              {activeRideId ? (
+                <RideStatusCard 
+                  rideId={activeRideId}
+                  onCancel={handleRideCancelled}
+                  onComplete={handleRideCompleted}
+                  isSearching={isSearching}
+                />
+              ) : (
+                <RideRequestForm 
+                  onRequestSubmit={(rideId: string) => handleRideRequested(rideId)} 
+                />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </MainLayout>
