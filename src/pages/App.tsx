@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,8 @@ import { Navigate } from 'react-router-dom';
 import { CarIcon, UserIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase, socket } from '@/integrations/supabase/client';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 
 const AppPage = () => {
   const { user, isLoading: authLoading, isDriver, toggleDriverMode } = useAuth();
@@ -22,6 +23,8 @@ const AppPage = () => {
     lng: number;
   } | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -35,11 +38,9 @@ const AppPage = () => {
     }
   }, [authLoading, user]);
 
-  // Check for active rides when component mounts or user/driver mode changes
   useEffect(() => {
     if (!user || authLoading) return;
     
-    // When switching to rider mode, check for active rides
     if (!isDriver) {
       const checkActiveRides = async () => {
         try {
@@ -58,7 +59,6 @@ const AppPage = () => {
             console.log('Active ride found:', data);
             setActiveRideId(data.id);
             
-            // Join the Socket.IO room for this ride
             socket.emit('join_room', `ride_${data.id}`);
           }
         } catch (error) {
@@ -68,28 +68,22 @@ const AppPage = () => {
       
       checkActiveRides();
     } else {
-      // If switching to driver mode, clear active ride
       setActiveRideId(null);
     }
     
-    // Set up Socket.IO listeners for user mode
     if (user.id) {
       const roomId = isDriver ? `driver_${user.id}` : `rider_${user.id}`;
       
-      // Join the room for this user
       socket.emit('join_room', roomId);
       console.log(`Joined room: ${roomId}`);
       
-      // Set up listener for ride assignments
       const handleRideAssignment = (data: any) => {
         console.log(`${isDriver ? 'Driver' : 'Rider'} received ride assignment:`, data);
         
-        // Only process if we're in rider mode and this is for us
         if (!isDriver && data.rider_id === user.id) {
           setActiveRideId(data.ride_id || data.id);
-          setIsSearching(false); // Stop any loading indicators
+          setIsSearching(false);
           
-          // Join the Socket.IO room for this ride
           socket.emit('join_room', `ride_${data.ride_id || data.id}`);
           
           toast('Driver assigned', {
@@ -98,18 +92,14 @@ const AppPage = () => {
         }
       };
       
-      // Set up listener for ride updates
       const handleRideUpdate = (payload: any) => {
         console.log(`${isDriver ? 'Driver' : 'Rider'} received ride update:`, payload);
         
-        // If this is a ride update for the rider's current request
         if (!isDriver && payload.new && payload.new.rider_id === user.id) {
-          // Handle various status updates
           if (payload.new.status === 'driver_assigned') {
             console.log('Driver assigned to ride:', payload.new);
             setActiveRideId(payload.new.id);
             
-            // Join the Socket.IO room for this ride if not already joined
             socket.emit('join_room', `ride_${payload.new.id}`);
             
             toast('Driver assigned', {
@@ -117,23 +107,19 @@ const AppPage = () => {
             });
           }
           
-          // For all other updates, just ensure we have the active ride ID set
-          else if (!activeRideId && ['en_route', 'arrived', 'in_progress'].includes(payload.new.status)) {
+          if (!activeRideId && ['en_route', 'arrived', 'in_progress'].includes(payload.new.status)) {
             setActiveRideId(payload.new.id);
           }
         }
       };
       
-      // Direct event for ride acceptance
       const handleRideAccepted = (data: any) => {
         console.log(`${isDriver ? 'Driver' : 'Rider'} received ride accepted event:`, data);
         
-        // Only process if we're in rider mode and this is for our ride
         if (!isDriver && data.rider_id === user.id) {
           setActiveRideId(data.id);
           setIsSearching(false);
           
-          // Join the Socket.IO room for this ride
           socket.emit('join_room', `ride_${data.id}`);
           
           toast('Driver assigned', {
@@ -147,7 +133,6 @@ const AppPage = () => {
       socket.on('ride_update', handleRideUpdate);
       
       return () => {
-        // Leave the room and remove listeners when component unmounts
         socket.emit('leave_room', roomId);
         console.log(`Left room: ${roomId}`);
         
@@ -163,7 +148,6 @@ const AppPage = () => {
     }
   }, [user, authLoading, isDriver]);
 
-  // Redirect if not logged in
   if (!authLoading && !user) {
     return <Navigate to="/auth" replace />;
   }
@@ -172,22 +156,23 @@ const AppPage = () => {
     setActiveRideId(rideId);
     setIsSearching(true);
     
-    // Join the Socket.IO room for this ride
     socket.emit('join_room', `ride_${rideId}`);
     
     toast('Ride requested', {
       description: 'Looking for drivers near you...',
     });
     
-    // Broadcast a new ride request to all online drivers
     socket.emit('new_ride_request', { 
       ride_id: rideId,
       rider_id: user?.id
     });
+    
+    if (isMobile) {
+      setDrawerOpen(false);
+    }
   };
 
   const handleRideCancelled = () => {
-    // Leave the Socket.IO room for this ride
     if (activeRideId) {
       socket.emit('leave_room', `ride_${activeRideId}`);
     }
@@ -200,7 +185,6 @@ const AppPage = () => {
   };
 
   const handleRideCompleted = () => {
-    // Leave the Socket.IO room for this ride
     if (activeRideId) {
       socket.emit('leave_room', `ride_${activeRideId}`);
     }
@@ -216,11 +200,33 @@ const AppPage = () => {
     setSelectedLocation(location);
   };
 
+  const renderSidebarContent = () => (
+    <div className="w-full p-4 overflow-y-auto bg-background">
+      {isDriver ? (
+        <DriverDashboard />
+      ) : (
+        <div className="space-y-4">
+          {activeRideId ? (
+            <RideStatusCard 
+              rideId={activeRideId}
+              onCancel={handleRideCancelled}
+              onComplete={handleRideCompleted}
+              isSearching={isSearching}
+            />
+          ) : (
+            <RideRequestForm 
+              onRequestSubmit={(rideId: string) => handleRideRequested(rideId)} 
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <MainLayout>
-      <div className="flex flex-col md:flex-row h-[calc(100vh-60px)]">
-        {/* Map Area - Make sure it's contained within its parent div */}
-        <div className="relative flex-1 h-[40vh] md:h-full overflow-hidden">
+      <div className="flex flex-col h-[calc(100vh-60px)]">
+        <div className="relative flex-1 h-[60vh] md:h-full overflow-hidden">
           <MapComponent
             mode={isDriver ? 'driver' : mapMode}
             onLocationSelect={handleLocationSelect}
@@ -245,29 +251,31 @@ const AppPage = () => {
               )}
             </Button>
           </div>
-        </div>
-        
-        {/* Content Area - Sidebar for forms and info */}
-        <div className="w-full md:w-[400px] p-4 overflow-y-auto bg-background shadow-lg z-10">
-          {isDriver ? (
-            <DriverDashboard />
-          ) : (
-            <div className="space-y-4">
-              {activeRideId ? (
-                <RideStatusCard 
-                  rideId={activeRideId}
-                  onCancel={handleRideCancelled}
-                  onComplete={handleRideCompleted}
-                  isSearching={isSearching}
-                />
-              ) : (
-                <RideRequestForm 
-                  onRequestSubmit={(rideId: string) => handleRideRequested(rideId)} 
-                />
-              )}
+          
+          {isMobile && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+              <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+                <DrawerTrigger asChild>
+                  <Button 
+                    variant="default" 
+                    className="h-12 px-6 rounded-full shadow-lg hailo-btn-gradient font-medium"
+                  >
+                    {isDriver ? "Driver Dashboard" : "Request a Ride"}
+                  </Button>
+                </DrawerTrigger>
+                <DrawerContent className="max-h-[85vh]">
+                  {renderSidebarContent()}
+                </DrawerContent>
+              </Drawer>
             </div>
           )}
         </div>
+        
+        {!isMobile && (
+          <div className="hidden md:block w-full md:w-[400px] md:absolute md:right-0 md:top-0 md:bottom-0 md:h-full shadow-lg z-10">
+            {renderSidebarContent()}
+          </div>
+        )}
       </div>
     </MainLayout>
   );
