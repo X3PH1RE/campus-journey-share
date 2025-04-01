@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { 
   Card, 
@@ -31,6 +30,7 @@ interface RideStatusCardProps {
   rideId: string;
   onCancel: () => void;
   onComplete: () => void;
+  isSearching?: boolean;
 }
 
 const statusMessages: Record<RideStatus, string> = {
@@ -53,7 +53,7 @@ const statusColors: Record<RideStatus, string> = {
   cancelled: "bg-red-500",
 };
 
-export default function RideStatusCard({ rideId, onCancel, onComplete }: RideStatusCardProps) {
+export default function RideStatusCard({ rideId, onCancel, onComplete, isSearching = false }: RideStatusCardProps) {
   const [ride, setRide] = useState<Ride | null>(null);
   const [driver, setDriver] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,10 +73,8 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
 
         if (rideError) throw rideError;
         
-        // Cast the data to our expected Ride type
         setRide(rideData as unknown as Ride);
         
-        // If driver assigned, fetch driver profile
         if (rideData.driver_id) {
           await fetchDriverProfile(rideData.driver_id);
         }
@@ -94,7 +92,6 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
 
     fetchRideDetails();
     
-    // Socket.IO listeners for ride updates
     const handleRideUpdate = (payload: any) => {
       console.log('RideStatusCard received ride update:', payload);
       
@@ -103,12 +100,10 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
         const updatedRide = payload.new as unknown as Ride;
         setRide(updatedRide);
         
-        // If driver just assigned, fetch driver profile
         if (updatedRide.driver_id && (!ride?.driver_id || updatedRide.driver_id !== ride?.driver_id)) {
           fetchDriverProfile(updatedRide.driver_id);
         }
         
-        // Show toast for status updates
         if (updatedRide.status !== ride?.status) {
           const newStatus = updatedRide.status as RideStatus;
           toast({
@@ -116,12 +111,10 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
             description: statusMessages[newStatus],
           });
 
-          // If completed, trigger the completion handler
           if (newStatus === 'completed') {
             onComplete();
           }
           
-          // If cancelled, trigger the cancellation handler
           if (newStatus === 'cancelled') {
             onCancel();
           }
@@ -129,12 +122,10 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
       }
     };
     
-    // Handle direct ride acceptance
     const handleRideAccepted = (data: any) => {
       console.log('RideStatusCard received ride accepted event:', data);
       
       if (data.id === rideId) {
-        // Update the ride with driver info
         setRide(prevRide => {
           if (!prevRide) return null;
           return {
@@ -144,13 +135,11 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
           };
         });
         
-        // Fetch the driver profile
         if (data.driver_id) {
           fetchDriverProfile(data.driver_id);
-          setIsLoading(false); // Stop loading indicator immediately
+          setIsLoading(false);
         }
         
-        // Show toast notification
         toast({
           title: "Driver assigned",
           description: "A driver has been assigned to your ride",
@@ -158,15 +147,12 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
       }
     };
     
-    // Handle ride assignment
     const handleRideAssigned = (data: any) => {
       console.log('RideStatusCard received ride assigned event:', data);
       
       if (data.ride_id === rideId || data.id === rideId) {
-        // Refresh ride details after assignment
         fetchRideDetails();
         
-        // Show toast notification
         toast({
           title: "Driver assigned",
           description: "A driver has been assigned to your ride",
@@ -174,17 +160,14 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
       }
     };
 
-    // Join a room specific to this ride
     socket.emit('join_room', `ride_${rideId}`);
     console.log(`Joined room: ride_${rideId}`);
     
-    // Listen for ride updates through Socket.IO
     socket.on('ride_update', handleRideUpdate);
     socket.on('ride_accepted', handleRideAccepted);
     socket.on('ride_assigned', handleRideAssigned);
     
     return () => {
-      // Leave the room and remove listeners when component unmounts
       socket.emit('leave_room', `ride_${rideId}`);
       socket.off('ride_update', handleRideUpdate);
       socket.off('ride_accepted', handleRideAccepted);
@@ -221,7 +204,6 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
         
       if (error) throw error;
       
-      // Notify all clients about the cancellation
       socket.emit('ride_status_updated', {
         ride_id: ride.id,
         status: 'cancelled'
@@ -251,7 +233,6 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
     try {
       setIsLoading(true);
       
-      // Submit rating
       const { error } = await supabase
         .from('driver_ratings')
         .insert([
@@ -298,6 +279,73 @@ export default function RideStatusCard({ rideId, onCancel, onComplete }: RideSta
             <Loader2Icon className="h-8 w-8 animate-spin text-primary" />
           </div>
         </CardContent>
+      </Card>
+    );
+  }
+
+  if (isSearching && ride && ride.status === 'searching') {
+    return (
+      <Card className="w-full">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-center">
+            <CardTitle>Finding a Driver</CardTitle>
+            <Badge className="bg-yellow-500 text-white">SEARCHING</Badge>
+          </div>
+          <CardDescription>Looking for drivers near you...</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <div className="flex items-start gap-2">
+              <MapPinIcon className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Pickup</p>
+                <p className="text-sm text-muted-foreground">{ride.pickup_location.address}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-2">
+              <MapPinIcon className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Dropoff</p>
+                <p className="text-sm text-muted-foreground">{ride.dropoff_location.address}</p>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 pt-1">
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <ClockIcon className="h-4 w-4" />
+                <span>{ride.estimated_duration} min</span>
+              </div>
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <CarIcon className="h-4 w-4" />
+                <span>{ride.distance} km</span>
+              </div>
+              <div className="flex items-center gap-1 text-sm font-medium">
+                <span>₹{ride.estimated_fare}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex justify-center py-4">
+            <Loader2Icon className="h-10 w-10 animate-spin text-primary" />
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button 
+            variant="outline" 
+            className="w-full"
+            onClick={handleCancelRide}
+            disabled={isCancelling}
+          >
+            {isCancelling ? (
+              <Loader2Icon className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <XIcon className="h-4 w-4 mr-2" />
+                Cancel Request
+              </>
+            )}
+          </Button>
+        </CardFooter>
       </Card>
     );
   }
