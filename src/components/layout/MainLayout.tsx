@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
-  MotorcycleIcon, 
+  BikeIcon, 
   HomeIcon, 
   LogOutIcon, 
   UserIcon,
@@ -38,7 +38,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   
   const navigation = [
     { name: 'Home', href: '/', icon: HomeIcon },
-    { name: isDriver ? 'Driver Dashboard' : 'Request Ride', href: '/app', icon: isDriver ? MotorcycleIcon : MapPinIcon },
+    { name: isDriver ? 'Driver Dashboard' : 'Request Ride', href: '/app', icon: isDriver ? BikeIcon : MapPinIcon },
     { name: 'Profile', href: '/profile', icon: UserIcon },
   ];
   
@@ -56,7 +56,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           <div className="flex items-center gap-8">
             <Link to="/" className="flex items-center gap-2">
               <div className="hailo-gradient p-2 rounded-full">
-                <MotorcycleIcon className="h-6 w-6 text-white" />
+                <BikeIcon className="h-6 w-6 text-white" />
               </div>
               <span className="font-bold text-xl bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Hailo</span>
             </Link>
@@ -146,7 +146,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                       <DropdownMenuItem asChild className="w-full justify-between md:hidden cursor-pointer px-3 py-2 rounded-md hover:bg-muted">
                         <div className="flex items-center justify-between w-full">
                           <div className="flex items-center gap-3">
-                            <MotorcycleIcon className="h-4 w-4 text-primary" />
+                            <BikeIcon className="h-4 w-4 text-primary" />
                             <span>{isDriver ? 'Driver Mode' : 'Rider Mode'}</span>
                           </div>
                           <Switch
@@ -189,7 +189,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
               <SheetContent side="right" className="w-[300px] sm:w-[400px]">
                 <div className="flex items-center gap-2 py-4 px-2 mb-6">
                   <div className="hailo-gradient p-2 rounded-full">
-                    <MotorcycleIcon className="h-5 w-5 text-white" />
+                    <BikeIcon className="h-5 w-5 text-white" />
                   </div>
                   <span className="font-bold text-xl bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Hailo</span>
                 </div>
@@ -222,7 +222,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="hailo-gradient p-1.5 rounded-full">
-                <MotorcycleIcon className="h-4 w-4 text-white" />
+                <BikeIcon className="h-4 w-4 text-white" />
               </div>
               <span className="font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Hailo</span>
               <span className="text-sm text-muted-foreground">© {new Date().getFullYear()}</span>
