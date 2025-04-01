@@ -18,7 +18,7 @@ const Profile = () => {
     full_name: profile?.full_name || '',
     phone_number: profile?.phone_number || '',
     bio: profile?.bio || '',
-    college_info: profile?.college_info || {
+    college_info: profile?.college_info as CollegeInfo || {
       name: '',
       student_id: '',
       department: '',

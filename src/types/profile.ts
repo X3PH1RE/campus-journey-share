@@ -29,6 +29,6 @@ export interface UserProfile {
   updated_at: string;
   username: string;
   vehicle_info: VehicleInfo | Json;
-  college_info?: CollegeInfo;
+  college_info?: CollegeInfo | Json;
   bio?: string;
 }

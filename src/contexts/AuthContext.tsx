@@ -4,6 +4,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Database } from '@/integrations/supabase/types';
+import { UserProfile } from '@/types/profile';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -17,6 +18,7 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, username: string) => Promise<void>;
   signOut: () => Promise<void>;
+  updateProfile: (profileData: Partial<UserProfile>) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -175,6 +177,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Add the updateProfile function
+  const updateProfile = async (profileData: Partial<UserProfile>) => {
+    if (!user) return;
+    
+    try {
+      setIsLoading(true);
+      const { error } = await supabase
+        .from('profiles')
+        .update(profileData)
+        .eq('id', user.id);
+
+      if (error) throw error;
+      
+      // Update local profile state with the new data
+      setProfile(prev => {
+        if (!prev) return null;
+        return { ...prev, ...profileData } as Profile;
+      });
+      
+      toast('Profile updated', {
+        description: 'Your profile information has been updated successfully.',
+      });
+    } catch (error: any) {
+      toast('Failed to update profile', {
+        description: error.message,
+      });
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const isDriver = profile?.is_driver || false;
 
   return (
@@ -189,6 +223,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signIn,
         signUp,
         signOut,
+        updateProfile,
       }}
     >
       {children}
